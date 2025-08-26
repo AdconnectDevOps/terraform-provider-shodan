@@ -52,9 +52,8 @@ jobs:
         GOARCH: ${{ matrix.arch }}
         CGO_ENABLED: 0
       run: |
-        # Set binary name with proper Terraform provider format
-        # Terraform expects: terraform-provider-{NAME}_{VERSION}
-        BINARY_NAME="terraform-provider-shodan_${{ github.ref_name }}"
+        # Set binary name - Terraform Registry expects just 'terraform-provider-shodan'
+        BINARY_NAME="terraform-provider-shodan"
         
         # Build with version info and proper platform targeting
         go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
