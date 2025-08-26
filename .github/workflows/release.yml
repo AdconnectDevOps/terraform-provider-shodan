@@ -59,9 +59,8 @@ jobs:
         go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
           -o "$BINARY_NAME" .
         
-        # Create archive name following Terraform Registry naming convention
-        # Format: terraform-provider-{NAME}_{VERSION}_{OS}_{ARCH}.zip
-        ARCHIVE_NAME="terraform-provider-shodan_${{ github.ref_name }}_${{ matrix.os }}_${{ matrix.arch }}.zip"
+        VERSION_NUMBER=${github.ref_name#v}  # Remove 'v' prefix
+        ARCHIVE_NAME="terraform-provider-shodan_${VERSION_NUMBER}_${{ matrix.os }}_${{ matrix.arch }}.zip"
         
         # Create ZIP archive with binary at root level (Terraform Registry requirement)
         zip "$ARCHIVE_NAME" "$BINARY_NAME"
