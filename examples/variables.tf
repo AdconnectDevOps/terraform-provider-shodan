@@ -16,7 +16,7 @@ variable "team" {
   default     = "security"
 }
 
-variable "slack_notifier_ids" {
+variable "slack_notifications" {
   description = "List of Slack notifier IDs from your Shodan account settings"
   type        = list(string)
   default     = []

@@ -36,7 +36,7 @@ resource "shodan_alert" "production_network" {
     "default"  # Default email notifier
   ]
   
-  slack_notifications = var.slack_notifier_ids
+  slack_notifications = var.slack_notifications
 }
 
 # Create another alert for DMZ
@@ -63,7 +63,7 @@ resource "shodan_alert" "dmz_network" {
     "default"
   ]
   
-  slack_notifications = var.slack_notifier_ids
+  slack_notifications = var.slack_notifications
 }
 
 # Data source to read an existing alert

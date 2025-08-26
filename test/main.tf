@@ -44,7 +44,7 @@ resource "shodan_alert" "test_alert" {
     "default"
   ]
   
-  slack_notifications = var.slack_notifier_ids
+  slack_notifications = var.slack_notifications
 }
 
 # Outputs
@@ -66,4 +66,5 @@ output "alert_network" {
 output "slack_channels" {
   description = "Slack channels configured for notifications"
   value       = shodan_alert.test_alert.slack_notifications
+  sensitive   = true
 }
