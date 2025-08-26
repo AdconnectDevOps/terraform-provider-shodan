@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/AdconnectDevOps/terraform-provider-shodan/shodan"
 )
 
 // Ensure the implementation satisfies the expected interfaces
@@ -60,7 +61,7 @@ func (p *ShodanProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	// if config.ApiKey.IsNull() { /* ... */ }
 
 	// Example client configuration for data sources and resources
-	client := &ShodanClient{
+	client := &shodan.ShodanClient{
 		ApiKey:     config.ApiKey.ValueString(),
 		BaseURL:    "https://api.shodan.io",
 		HTTPClient: &http.Client{},
@@ -72,13 +73,13 @@ func (p *ShodanProvider) Configure(ctx context.Context, req provider.ConfigureRe
 
 func (p *ShodanProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewShodanAlertResource,
+		shodan.NewShodanAlertResource,
 	}
 }
 
 func (p *ShodanProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewShodanAlertDataSource,
+		shodan.NewShodanAlertDataSource,
 	}
 }
 
