@@ -10,7 +10,7 @@ permissions:
   packages: write
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -56,37 +56,21 @@ jobs:
           -o "$BINARY_NAME" .
         
         # Create archive name
-        ARCHIVE_NAME="terraform-provider-shodan_${{ github.ref_name }}_${{ matrix.os }}_${{ matrix.arch }}"
-        tar -czf "${ARCHIVE_NAME}.tar.gz" "$BINARY_NAME"
-        ARCHIVE_NAME="${ARCHIVE_NAME}.tar.gz"
+        ARCHIVE_NAME="terraform-provider-shodan_${{ github.ref_name }}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz"
+        tar -czf "$ARCHIVE_NAME" "$BINARY_NAME"
         
-        mkdir -p artifacts/${ARCHIVE_NAME%.tar.gz}
-        mv "$ARCHIVE_NAME" artifacts/${ARCHIVE_NAME%.tar.gz}/
-        mv "$BINARY_NAME" artifacts/${ARCHIVE_NAME%.tar.gz}/ # Keep binary for SHA256SUMS
-
-    - name: Generate SHA256SUMS
-      run: |
-        cd artifacts
-        find . -type f -name "*.tar.gz" -exec sha256sum {} + > SHA256SUMS
-        mv SHA256SUMS .. # Move to root for signing and uploading
-
-    - name: Import GPG key and Sign SHA256SUMS
-      env:
-        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-      run: |
-        echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-        gpg --batch --yes --armor --detach-sign --output SHA256SUMS.sig SHA256SUMS
+        # Create artifacts directory structure
+        mkdir -p artifacts
+        mv "$ARCHIVE_NAME" artifacts/
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: terraform-provider-shodan-${{ matrix.os }}-${{ matrix.arch }}
-        path: |
-          ${{ env.ARCHIVE_NAME }}
-          ${{ env.BINARY_NAME }}
+        path: artifacts/*.tar.gz
 
-  create-release:
-    needs: release
+  release:
+    needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
@@ -99,20 +83,31 @@ jobs:
       with:
         path: artifacts
 
+    - name: Generate SHA256SUMS
+      run: |
+        cd artifacts
+        find . -type f -name "*.tar.gz" -exec sha256sum {} + > SHA256SUMS
+        echo "Generated SHA256SUMS:"
+        cat SHA256SUMS
+
+    - name: Import GPG key and Sign SHA256SUMS
+      env:
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      run: |
+        echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+        gpg --batch --yes --armor --detach-sign --output artifacts/SHA256SUMS.sig artifacts/SHA256SUMS
+        echo "Generated SHA256SUMS.sig"
+
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          artifacts/terraform-provider-shodan-linux-amd64/*.tar.gz
-          artifacts/terraform-provider-shodan-linux-arm64/*.tar.gz
-          artifacts/terraform-provider-shodan-darwin-amd64/*.tar.gz
-          artifacts/terraform-provider-shodan-darwin-arm64/*.tar.gz
-          SHA256SUMS
-          SHA256SUMS.sig
+          artifacts/*.tar.gz
+          artifacts/SHA256SUMS
+          artifacts/SHA256SUMS.sig
         generate_release_notes: true
         draft: false
         prerelease: false
-        title: "Release ${{ github.ref_name }}"
         body: |
           ## 🚀 Terraform Provider for Shodan ${{ github.ref_name }}
           
