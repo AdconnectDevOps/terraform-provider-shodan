@@ -47,11 +47,16 @@ jobs:
         fi
 
     - name: Build and archive
+      env:
+        GOOS: ${{ matrix.os }}
+        GOARCH: ${{ matrix.arch }}
+        CGO_ENABLED: 0
       run: |
-        # Set binary name
-        BINARY_NAME="terraform-provider-shodan"
+        # Set binary name with proper Terraform provider format
+        # Terraform expects: terraform-provider-{NAME}_{VERSION}
+        BINARY_NAME="terraform-provider-shodan_${{ github.ref_name }}"
         
-        # Build with version info
+        # Build with version info and proper platform targeting
         go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
           -o "$BINARY_NAME" .
         
@@ -59,7 +64,7 @@ jobs:
         # Format: terraform-provider-{NAME}_{VERSION}_{OS}_{ARCH}.zip
         ARCHIVE_NAME="terraform-provider-shodan_${{ github.ref_name }}_${{ matrix.os }}_${{ matrix.arch }}.zip"
         
-        # Create ZIP archive (Terraform Registry prefers ZIP over tar.gz)
+        # Create ZIP archive with binary at root level (Terraform Registry requirement)
         zip "$ARCHIVE_NAME" "$BINARY_NAME"
         
         # Create artifacts directory structure
