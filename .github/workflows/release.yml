@@ -55,9 +55,12 @@ jobs:
         go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
           -o "$BINARY_NAME" .
         
-        # Create archive name
-        ARCHIVE_NAME="terraform-provider-shodan_${{ github.ref_name }}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz"
-        tar -czf "$ARCHIVE_NAME" "$BINARY_NAME"
+        # Create archive name following Terraform Registry naming convention
+        # Format: terraform-provider-{NAME}_{VERSION}_{OS}_{ARCH}.zip
+        ARCHIVE_NAME="terraform-provider-shodan_${{ github.ref_name }}_${{ matrix.os }}_${{ matrix.arch }}.zip"
+        
+        # Create ZIP archive (Terraform Registry prefers ZIP over tar.gz)
+        zip "$ARCHIVE_NAME" "$BINARY_NAME"
         
         # Create artifacts directory structure
         mkdir -p artifacts
@@ -67,7 +70,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: terraform-provider-shodan-${{ matrix.os }}-${{ matrix.arch }}
-        path: artifacts/*.tar.gz
+        path: artifacts/*.zip
 
   release:
     needs: build
