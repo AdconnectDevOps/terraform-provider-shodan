@@ -52,13 +52,15 @@ jobs:
         GOARCH: ${{ matrix.arch }}
         CGO_ENABLED: 0
       run: |
-        # Set binary name - Terraform Registry expects just 'terraform-provider-shodan'
-        BINARY_NAME="terraform-provider-shodan"
+        # Set binary name - Terraform Registry expects: terraform-provider-{NAME}_v{VERSION}
+        BINARY_NAME="terraform-provider-shodan_v${{ github.ref_name }}"
         
         # Build with version info and proper platform targeting
         go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
           -o "$BINARY_NAME" .
         
+        # Create archive name following Terraform Registry naming convention
+        # Format: terraform-provider-{NAME}_{VERSION}_{OS}_{ARCH}.zip (without 'v' in filename)
         VERSION_NUMBER=$(echo "${{ github.ref_name }}" | sed 's/^v//')
         ARCHIVE_NAME="terraform-provider-shodan_${VERSION_NUMBER}_${{ matrix.os }}_${{ matrix.arch }}.zip"
         
