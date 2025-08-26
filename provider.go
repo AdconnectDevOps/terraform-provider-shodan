@@ -4,12 +4,12 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/AdconnectDevOps/terraform-provider-shodan/shodan"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/AdconnectDevOps/terraform-provider-shodan/shodan"
 )
 
 // Ensure the implementation satisfies the expected interfaces
