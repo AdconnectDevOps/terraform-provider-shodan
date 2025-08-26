@@ -83,6 +83,13 @@ jobs:
       with:
         path: artifacts
 
+    - name: List downloaded artifacts
+      run: |
+        echo "Artifacts directory structure:"
+        find artifacts -type f -name "*.tar.gz" | sort
+        echo "Total .tar.gz files found:"
+        find artifacts -type f -name "*.tar.gz" | wc -l
+
     - name: Generate SHA256SUMS
       run: |
         cd artifacts
@@ -102,7 +109,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          artifacts/*.tar.gz
+          artifacts/**/*.tar.gz
           artifacts/SHA256SUMS
           artifacts/SHA256SUMS.sig
         generate_release_notes: true
