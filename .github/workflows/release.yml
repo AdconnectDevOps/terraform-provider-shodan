@@ -59,7 +59,7 @@ jobs:
         go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
           -o "$BINARY_NAME" .
         
-        VERSION_NUMBER=${github.ref_name#v}  # Remove 'v' prefix
+        VERSION_NUMBER=$(echo "${{ github.ref_name }}" | sed 's/^v//')
         ARCHIVE_NAME="terraform-provider-shodan_${VERSION_NUMBER}_${{ matrix.os }}_${{ matrix.arch }}.zip"
         
         # Create ZIP archive with binary at root level (Terraform Registry requirement)
