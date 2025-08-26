@@ -1,161 +1,40 @@
+# Terraform Provider release workflow.
 name: Release
 
+# This GitHub action creates a release when a tag that matches the pattern
+# "v*" (e.g. v0.1.0) is created.
 on:
   push:
     tags:
-      - 'v*'  # Trigger on version tags (e.g., v1.0.0, v1.2.3)
+      - 'v*'
 
+# Releases need permissions to read and write the repository contents.
+# GitHub considers creating releases and uploading assets as writing contents.
 permissions:
   contents: write
-  packages: write
 
 jobs:
-  build:
+  goreleaser:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: [1.21]
-        os: [linux, darwin]
-        arch: [amd64, arm64]
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Full history for proper versioning
-
-    - name: Set up Go ${{ matrix.go-version }}
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ matrix.go-version }}
-
-    - name: Download dependencies
-      run: go mod download
-
-    - name: Run tests
-      run: go test -v ./...
-
-    - name: Run linter
-      run: go vet ./...
-
-    - name: Check formatting
-      run: |
-        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-          echo "Code is not formatted. Please run 'go fmt ./...'"
-          gofmt -s -l .
-          exit 1
-        fi
-
-    - name: Build and archive
-      env:
-        GOOS: ${{ matrix.os }}
-        GOARCH: ${{ matrix.arch }}
-        CGO_ENABLED: 0
-      run: |
-        # Set binary name - Terraform Registry expects: terraform-provider-{NAME}_v{VERSION}
-        BINARY_NAME="terraform-provider-shodan_${{ github.ref_name }}"
-        
-        # Build with version info and proper platform targeting
-        go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
-          -o "$BINARY_NAME" .
-        
-        # Create archive name following Terraform Registry naming convention
-        # Format: terraform-provider-{NAME}_{VERSION}_{OS}_{ARCH}.zip (without 'v' in filename)
-        VERSION_NUMBER=$(echo "${{ github.ref_name }}" | sed 's/^v//')
-        ARCHIVE_NAME="terraform-provider-shodan_${VERSION_NUMBER}_${{ matrix.os }}_${{ matrix.arch }}.zip"
-        
-        # Create ZIP archive with binary at root level (Terraform Registry requirement)
-        zip "$ARCHIVE_NAME" "$BINARY_NAME"
-        
-        # Create artifacts directory structure
-        mkdir -p artifacts
-        mv "$ARCHIVE_NAME" artifacts/
-
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: terraform-provider-shodan-${{ matrix.os }}-${{ matrix.arch }}
-        path: artifacts/*.zip
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
-
-    - name: List downloaded artifacts
-      run: |
-        echo "Artifacts directory structure:"
-        find artifacts -type f -name "*.zip" | sort
-        echo "Total .zip files found:"
-        find artifacts -type f -name "*.zip" | wc -l
-
-    - name: Generate SHA256SUMS
-      run: |
-        cd artifacts
-        find . -type f -name "*.zip" -exec sha256sum {} + > SHA256SUMS
-        echo "Generated SHA256SUMS:"
-        cat SHA256SUMS
-
-    - name: Rename SHA256SUMS files with version prefix
-      run: |
-        cd artifacts
-        VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
-        mv SHA256SUMS "terraform-provider-shodan_${VERSION}_SHA256SUMS"
-        echo "Renamed SHA256SUMS to terraform-provider-shodan_${VERSION}_SHA256SUMS"
-
-    - name: Import GPG key and Sign SHA256SUMS
-      env:
-        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-      run: |
-        cd artifacts
-        VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
-        echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-        gpg --batch --yes --armor --detach-sign --output "terraform-provider-shodan_${VERSION}_SHA256SUMS.sig" "terraform-provider-shodan_${VERSION}_SHA256SUMS"
-        echo "Generated terraform-provider-shodan_${VERSION}_SHA256SUMS.sig"
-
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          artifacts/**/*.zip
-          artifacts/*_SHA256SUMS
-          artifacts/*_SHA256SUMS.sig
-        generate_release_notes: true
-        draft: false
-        prerelease: false
-        body: |
-          ## 🚀 Terraform Provider for Shodan ${{ github.ref_name }}
-          
-          ### 📦 What's New
-          - Automated release with multi-platform binaries
-          - Built for Go 1.21
-          
-          ### 🔧 Supported Platforms
-          - **Linux**: AMD64, ARM64
-          - **macOS**: AMD64 (Intel), ARM64 (Apple Silicon)
-          
-          ### 📥 Installation
-          Download the appropriate binary for your platform and follow the [Usage instructions](https://github.com/AdconnectDevOps/terraform-provider-shodan?tab=readme-ov-file#-usage).
-          
-          ### ✅ Verification
-          You can verify the integrity of the downloaded files using the `SHA256SUMS` file and its signature `SHA256SUMS.sig`.
-          
-          ```bash
-          # Verify checksums
-          sha256sum --check SHA256SUMS
-          
-          # Verify signature (you'll need to import the signing key first)
-          gpg --verify SHA256SUMS.sig SHA256SUMS
-          ```
-          
-          ---
-          *This release was automatically generated by GitHub Actions*
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          # Allow goreleaser to access older tag information.
+          fetch-depth: 0
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
+        id: import_gpg
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6.4.0
+        with:
+          args: release --clean
+        env:
+          # GitHub sets the GITHUB_TOKEN secret automatically.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
