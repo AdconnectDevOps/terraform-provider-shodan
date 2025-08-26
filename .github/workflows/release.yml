@@ -97,21 +97,27 @@ jobs:
         echo "Generated SHA256SUMS:"
         cat SHA256SUMS
 
+    - name: Rename SHA256SUMS files with version prefix
+      run: |
+        cd artifacts
+        mv SHA256SUMS "terraform-provider-shodan_${{ github.ref_name }}_SHA256SUMS"
+        echo "Renamed SHA256SUMS to terraform-provider-shodan_${{ github.ref_name }}_SHA256SUMS"
+
     - name: Import GPG key and Sign SHA256SUMS
       env:
         GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
       run: |
         echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-        gpg --batch --yes --armor --detach-sign --output artifacts/SHA256SUMS.sig artifacts/SHA256SUMS
-        echo "Generated SHA256SUMS.sig"
+        gpg --batch --yes --armor --detach-sign --output "artifacts/terraform-provider-shodan_${{ github.ref_name }}_SHA256SUMS.sig" "artifacts/terraform-provider-shodan_${{ github.ref_name }}_SHA256SUMS"
+        echo "Generated terraform-provider-shodan_${{ github.ref_name }}_SHA256SUMS.sig"
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
           artifacts/**/*.tar.gz
-          artifacts/SHA256SUMS
-          artifacts/SHA256SUMS.sig
+          artifacts/terraform-provider-shodan_${{ github.ref_name }}_SHA256SUMS
+          artifacts/terraform-provider-shodan_${{ github.ref_name }}_SHA256SUMS.sig
         generate_release_notes: true
         draft: false
         prerelease: false
