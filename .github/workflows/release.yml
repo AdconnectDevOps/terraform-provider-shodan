@@ -89,14 +89,14 @@ jobs:
     - name: List downloaded artifacts
       run: |
         echo "Artifacts directory structure:"
-        find artifacts -type f -name "*.tar.gz" | sort
-        echo "Total .tar.gz files found:"
-        find artifacts -type f -name "*.tar.gz" | wc -l
+        find artifacts -type f -name "*.zip" | sort
+        echo "Total .zip files found:"
+        find artifacts -type f -name "*.zip" | wc -l
 
     - name: Generate SHA256SUMS
       run: |
         cd artifacts
-        find . -type f -name "*.tar.gz" -exec sha256sum {} + > SHA256SUMS
+        find . -type f -name "*.zip" -exec sha256sum {} + > SHA256SUMS
         echo "Generated SHA256SUMS:"
         cat SHA256SUMS
 
@@ -118,7 +118,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          artifacts/**/*.tar.gz
+          artifacts/**/*.zip
           artifacts/terraform-provider-shodan_${{ github.ref_name }}_SHA256SUMS
           artifacts/terraform-provider-shodan_${{ github.ref_name }}_SHA256SUMS.sig
         generate_release_notes: true
