@@ -1,0 +1,10 @@
+# Shodan API Configuration
+shodan_api_key = "your-shodan-api-key-here"
+
+# Environment and team
+environment = "production"
+team        = "security"
+
+# Slack Notifications (optional)
+# Get your Slack notifier IDs from Shodan account settings
+# slack_notifier_ids = ["your-slack-notifier-id-here"]

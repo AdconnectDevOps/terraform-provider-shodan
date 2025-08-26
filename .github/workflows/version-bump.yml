@@ -1,0 +1,147 @@
+name: Version Bump
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
+      - 'CHANGELOG.md'
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+    - name: Check for version tag
+      id: check-version
+      run: |
+        # Get the latest version tag
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+        
+        # Extract version numbers
+        VERSION=$(echo $LATEST_TAG | sed 's/v//')
+        MAJOR=$(echo $VERSION | cut -d. -f1)
+        MINOR=$(echo $VERSION | cut -d. -f2)
+        PATCH=$(echo $VERSION | cut -d. -f3)
+        
+        echo "major=$MAJOR" >> $GITHUB_OUTPUT
+        echo "minor=$MINOR" >> $GITHUB_OUTPUT
+        echo "patch=$PATCH" >> $GITHUB_OUTPUT
+        
+        # Determine bump type based on commit messages since last tag
+        COMMITS_SINCE_TAG=$(git log --oneline $LATEST_TAG..HEAD | wc -l)
+        echo "commits_since_tag=$COMMITS_SINCE_TAG" >> $GITHUB_OUTPUT
+        
+        if [ $COMMITS_SINCE_TAG -eq 0 ]; then
+          echo "bump_type=none" >> $GITHUB_OUTPUT
+        else
+          # Check for breaking changes or features
+          if git log --oneline $LATEST_TAG..HEAD | grep -q "BREAKING CHANGE\|feat:"; then
+            echo "bump_type=major" >> $GITHUB_OUTPUT
+          elif git log --oneline $LATEST_TAG..HEAD | grep -q "feat:"; then
+            echo "bump_type=minor" >> $GITHUB_OUTPUT
+          else
+            echo "bump_type=patch" >> $GITHUB_OUTPUT
+          fi
+        fi
+
+    - name: Bump version
+      if: steps.check-version.outputs.bump_type != 'none'
+      run: |
+        MAJOR=${{ steps.check-version.outputs.major }}
+        MINOR=${{ steps.check-version.outputs.minor }}
+        PATCH=${{ steps.check-version.outputs.patch }}
+        BUMP_TYPE="${{ steps.check-version.outputs.bump_type }}"
+        
+        case $BUMP_TYPE in
+          "major")
+            NEW_MAJOR=$((MAJOR + 1))
+            NEW_VERSION="${NEW_MAJOR}.0.0"
+            ;;
+          "minor")
+            NEW_MINOR=$((MINOR + 1))
+            NEW_VERSION="${MAJOR}.${NEW_MINOR}.0"
+            ;;
+          "patch")
+            NEW_PATCH=$((PATCH + 1))
+            NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+            ;;
+        esac
+        
+        echo "NEW_VERSION=v${NEW_VERSION}" >> $GITHUB_ENV
+        echo "Bumping version from v${MAJOR}.${MINOR}.${PATCH} to v${NEW_VERSION}"
+
+    - name: Create and push tag
+      if: steps.check-version.outputs.bump_type != 'none'
+      run: |
+        git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
+        git push origin "$NEW_VERSION"
+        echo "Created and pushed tag: $NEW_VERSION"
+
+    - name: Update CHANGELOG
+      if: steps.check-version.outputs.bump_type != 'none'
+      run: |
+        # Add new version to CHANGELOG
+        TODAY=$(date +%Y-%m-%d)
+        NEW_VERSION="$NEW_VERSION"
+        
+        # Create changelog entry
+        cat > temp_changelog.md << EOF
+        # Changelog
+        
+        All notable changes to this project will be documented in this file.
+        
+        ## [$NEW_VERSION] - $TODAY
+        
+        ### Added
+        - Automated version bumping and release
+        
+        ### Changed
+        - Updated to use AdconnectDevOps organization
+        
+        ### Fixed
+        - Enhanced Slack notifier ID documentation
+        
+        EOF
+        
+        # Append existing changelog content
+        if [ -f CHANGELOG.md ]; then
+          tail -n +2 CHANGELOG.md >> temp_changelog.md
+        fi
+        
+        mv temp_changelog.md CHANGELOG.md
+        
+        # Commit and push changelog update
+        git add CHANGELOG.md
+        git commit -m "docs: update CHANGELOG for $NEW_VERSION"
+        git push origin main
+
+    - name: Comment on PR
+      if: steps.check-version.outputs.bump_type != 'none'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: releases } = await github.rest.repos.listReleases({
+            owner: context.repo.owner,
+            repo: context.repo.repo
+          });
+          
+          if (releases.length > 0) {
+            const latestRelease = releases[0];
+            core.notice(`🚀 New release created: ${latestRelease.tag_name}`);
+            core.notice(`📝 Release notes: ${latestRelease.html_url}`);
+          }
