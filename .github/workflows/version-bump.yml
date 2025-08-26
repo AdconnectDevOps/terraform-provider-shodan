@@ -7,6 +7,17 @@ on:
       - '**.md'
       - '.github/**'
       - 'CHANGELOG.md'
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 jobs:
   version-bump:
@@ -29,43 +40,58 @@ jobs:
       id: check-version
       run: |
         # Get the latest version tag
-        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
         echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
         
-        # Extract version numbers
-        VERSION=$(echo $LATEST_TAG | sed 's/v//')
-        MAJOR=$(echo $VERSION | cut -d. -f1)
-        MINOR=$(echo $VERSION | cut -d. -f2)
-        PATCH=$(echo $VERSION | cut -d. -f3)
-        
-        echo "major=$MAJOR" >> $GITHUB_OUTPUT
-        echo "minor=$MINOR" >> $GITHUB_OUTPUT
-        echo "patch=$PATCH" >> $GITHUB_OUTPUT
-        
-        # Determine bump type based on commit messages since last tag
-        COMMITS_SINCE_TAG=$(git log --oneline $LATEST_TAG..HEAD | wc -l)
-        echo "commits_since_tag=$COMMITS_SINCE_TAG" >> $GITHUB_OUTPUT
-        
-        if [ $COMMITS_SINCE_TAG -eq 0 ]; then
-          echo "bump_type=none" >> $GITHUB_OUTPUT
+        if [ -z "$LATEST_TAG" ]; then
+          # No tags exist yet, start with v0.0.0
+          echo "major=0" >> $GITHUB_OUTPUT
+          echo "minor=0" >> $GITHUB_OUTPUT
+          echo "patch=0" >> $GITHUB_OUTPUT
+          echo "commits_since_tag=0" >> $GITHUB_OUTPUT
+          echo "bump_type=patch" >> $GITHUB_OUTPUT
         else
-          # Check for breaking changes or features
-          if git log --oneline $LATEST_TAG..HEAD | grep -q "BREAKING CHANGE\|feat:"; then
-            echo "bump_type=major" >> $GITHUB_OUTPUT
-          elif git log --oneline $LATEST_TAG..HEAD | grep -q "feat:"; then
-            echo "bump_type=minor" >> $GITHUB_OUTPUT
+          # Extract version numbers from existing tag
+          VERSION=$(echo $LATEST_TAG | sed 's/v//')
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          
+          echo "major=$MAJOR" >> $GITHUB_OUTPUT
+          echo "minor=$MINOR" >> $GITHUB_OUTPUT
+          echo "patch=$PATCH" >> $GITHUB_OUTPUT
+          
+          # Determine bump type based on commit messages since last tag
+          COMMITS_SINCE_TAG=$(git log --oneline $LATEST_TAG..HEAD | wc -l)
+          echo "commits_since_tag=$COMMITS_SINCE_TAG" >> $GITHUB_OUTPUT
+          
+          if [ $COMMITS_SINCE_TAG -eq 0 ]; then
+            echo "bump_type=none" >> $GITHUB_OUTPUT
           else
-            echo "bump_type=patch" >> $GITHUB_OUTPUT
+            # Check for breaking changes or features
+            if git log --oneline $LATEST_TAG..HEAD | grep -q "BREAKING CHANGE\|feat:"; then
+              echo "bump_type=major" >> $GITHUB_OUTPUT
+            elif git log --oneline $LATEST_TAG..HEAD | grep -q "feat:"; then
+              echo "bump_type=minor" >> $GITHUB_OUTPUT
+            else
+              echo "bump_type=patch" >> $GITHUB_OUTPUT
+            fi
           fi
         fi
 
     - name: Bump version
-      if: steps.check-version.outputs.bump_type != 'none'
+      if: steps.check-version.outputs.bump_type != 'none' || github.event.inputs.version_type
       run: |
         MAJOR=${{ steps.check-version.outputs.major }}
         MINOR=${{ steps.check-version.outputs.minor }}
         PATCH=${{ steps.check-version.outputs.patch }}
-        BUMP_TYPE="${{ steps.check-version.outputs.bump_type }}"
+        
+        # Use manual input if provided, otherwise use auto-detected
+        if [ "${{ github.event.inputs.version_type }}" != "" ]; then
+          BUMP_TYPE="${{ github.event.inputs.version_type }}"
+        else
+          BUMP_TYPE="${{ steps.check-version.outputs.bump_type }}"
+        fi
         
         case $BUMP_TYPE in
           "major")
@@ -86,14 +112,14 @@ jobs:
         echo "Bumping version from v${MAJOR}.${MINOR}.${PATCH} to v${NEW_VERSION}"
 
     - name: Create and push tag
-      if: steps.check-version.outputs.bump_type != 'none'
+      if: steps.check-version.outputs.bump_type != 'none' || github.event.inputs.version_type
       run: |
         git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
         git push origin "$NEW_VERSION"
         echo "Created and pushed tag: $NEW_VERSION"
 
     - name: Update CHANGELOG
-      if: steps.check-version.outputs.bump_type != 'none'
+      if: steps.check-version.outputs.bump_type != 'none' || github.event.inputs.version_type
       run: |
         # Add new version to CHANGELOG
         TODAY=$(date +%Y-%m-%d)
@@ -130,8 +156,46 @@ jobs:
         git commit -m "docs: update CHANGELOG for $NEW_VERSION"
         git push origin main
 
+    - name: Update README with Latest Version
+      if: steps.check-version.outputs.bump_type != 'none' || github.event.inputs.version_type
+      run: |
+        # Extract version without 'v' prefix for README updates
+        VERSION_NUMBER=$(echo "$NEW_VERSION" | sed 's/v//')
+        
+        # Update version in README.md
+        if [ -f README.md ]; then
+          # Update installation directory paths with new version
+          sed -i "s|/0\.[0-9]\+\.[0-9]\+/|/$VERSION_NUMBER/|g" README.md
+          
+          # Update binary names with new version
+          sed -i "s|terraform-provider-shodan_0\.[0-9]\+\.[0-9]\+_|terraform-provider-shodan_${VERSION_NUMBER}_|g" README.md
+          
+          # Update provider version constraint
+          sed -i "s|version = \"~> 0\.[0-9]\+|version = \"~> $(echo $VERSION_NUMBER | cut -d. -f1-2)|g" README.md
+          
+          # Update release badge URL if it exists
+          sed -i "s|github\.com/AdconnectDevOps/terraform-provider-shodan/releases/tag/v[0-9]\+\.[0-9]\+\.[0-9]\+|github.com/AdconnectDevOps/terraform-provider-shodan/releases/tag/$NEW_VERSION|g" README.md
+          
+          echo "✅ README.md updated with version $VERSION_NUMBER"
+        else
+          echo "⚠️  README.md not found, skipping update"
+        fi
+
+    - name: Commit and Push README Updates
+      if: steps.check-version.outputs.bump_type != 'none' || github.event.inputs.version_type
+      run: |
+        # Check if there are any changes to commit
+        if git diff --quiet; then
+          echo "No changes to README.md to commit"
+        else
+          git add README.md
+          git commit -m "docs: update README.md for $NEW_VERSION"
+          git push origin main
+          echo "✅ README.md changes committed and pushed"
+        fi
+
     - name: Comment on PR
-      if: steps.check-version.outputs.bump_type != 'none'
+      if: steps.check-version.outputs.bump_type != 'none' || github.event.inputs.version_type
       uses: actions/github-script@v7
       with:
         script: |
@@ -145,3 +209,19 @@ jobs:
             core.notice(`🚀 New release created: ${latestRelease.tag_name}`);
             core.notice(`📝 Release notes: ${latestRelease.html_url}`);
           }
+
+    - name: Verify Release Workflow Trigger
+      if: steps.check-version.outputs.bump_type != 'none' || github.event.inputs.version_type
+      run: |
+        echo "🚀 Tag $NEW_VERSION has been created and pushed"
+        echo "📋 The release workflow should automatically trigger on this tag"
+        echo "⏱️  Waiting for release workflow to start..."
+        sleep 10
+        
+        # Check if release workflow is running
+        if gh workflow list --json name,status | grep -q "release.*in_progress"; then
+          echo "✅ Release workflow is running successfully"
+        else
+          echo "⚠️  Release workflow may not have started yet"
+          echo "🔍 Check the Actions tab for the release workflow"
+        fi

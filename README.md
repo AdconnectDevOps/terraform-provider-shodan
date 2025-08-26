@@ -29,7 +29,17 @@ A Terraform provider for managing Shodan network alerts and monitoring configura
 
 2. **Create the provider directory structure**:
    ```bash
+   # For macOS ARM64 (Apple Silicon)
    mkdir -p ~/.terraform.d/plugins/registry.terraform.io/AdconnectDevOps/shodan/0.1.0/darwin_arm64/
+   
+   # For macOS AMD64 (Intel)
+   mkdir -p ~/.terraform.d/plugins/registry.terraform.io/AdconnectDevOps/shodan/0.1.0/darwin_amd64/
+   
+   # For Linux AMD64
+   mkdir -p ~/.terraform.d/plugins/registry.terraform.io/AdconnectDevOps/shodan/0.1.0/linux_amd64/
+   
+   # For Linux ARM64
+   mkdir -p ~/.terraform.d/plugins/registry.terraform.io/AdconnectDevOps/shodan/0.1.0/linux_arm64/
    ```
 
 3. **Install the provider**:
