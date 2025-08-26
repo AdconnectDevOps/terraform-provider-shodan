@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -27,7 +28,7 @@ type ShodanAlertResource struct {
 type ShodanAlertResourceModel struct {
 	ID                 types.String `tfsdk:"id"`
 	Name               types.String `tfsdk:"name"`
-	Network            types.String `tfsdk:"network"`
+	Network            types.List   `tfsdk:"network"`
 	Description        types.String `tfsdk:"description"`
 	Tags               types.List   `tfsdk:"tags"`
 	Enabled            types.Bool   `tfsdk:"enabled"`
@@ -59,8 +60,9 @@ func (r *ShodanAlertResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Description: "The name of the Shodan alert.",
 				Required:    true,
 			},
-			"network": schema.StringAttribute{
-				Description: "The IP network range to monitor (e.g., '192.168.1.0/24' or '5.6.7.8/32').",
+			"network": schema.ListAttribute{
+				Description: "List of IP network ranges to monitor (e.g., ['192.168.1.0/24', '5.6.7.8/32']).",
+				ElementType: types.StringType,
 				Required:    true,
 			},
 			"description": schema.StringAttribute{
@@ -123,8 +125,11 @@ func (r *ShodanAlertResource) Create(ctx context.Context, req resource.CreateReq
 	}
 
 	// Create the alert via Shodan API
+	var networks []string
+	plan.Network.ElementsAs(ctx, &networks, false)
+
 	filters := map[string]interface{}{
-		"ip": []string{plan.Network.ValueString()},
+		"ip": networks,
 	}
 
 	alert, err := r.client.CreateAlert(plan.Name.ValueString(), filters)
@@ -205,6 +210,23 @@ func (r *ShodanAlertResource) Read(ctx context.Context, req resource.ReadRequest
 	state.Name = types.StringValue(alert.Name)
 	state.CreatedAt = types.StringValue(alert.Created)
 	state.Enabled = types.BoolValue(alert.HasTriggers)
+
+	// Extract networks from filters
+	if alert.Filters != nil {
+		if ipFilters, ok := alert.Filters["ip"]; ok {
+			if ipList, ok := ipFilters.([]interface{}); ok {
+				var networks []attr.Value
+				for _, ip := range ipList {
+					if ipStr, ok := ip.(string); ok {
+						networks = append(networks, types.StringValue(ipStr))
+					}
+				}
+				if len(networks) > 0 {
+					state.Network = types.ListValueMust(types.StringType, networks)
+				}
+			}
+		}
+	}
 
 	// Set state
 	diags = resp.State.Set(ctx, state)

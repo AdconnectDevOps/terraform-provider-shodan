@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -23,7 +24,7 @@ type ShodanAlertDataSource struct {
 type ShodanAlertDataSourceModel struct {
 	ID          types.String `tfsdk:"id"`
 	Name        types.String `tfsdk:"name"`
-	Network     types.String `tfsdk:"network"`
+	Network     types.List   `tfsdk:"network"`
 	Description types.String `tfsdk:"description"`
 	Tags        types.List   `tfsdk:"tags"`
 	Enabled     types.Bool   `tfsdk:"enabled"`
@@ -54,8 +55,9 @@ func (d *ShodanAlertDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 				Description: "The name of the Shodan alert.",
 				Computed:    true,
 			},
-			"network": schema.StringAttribute{
-				Description: "The IP network range being monitored.",
+			"network": schema.ListAttribute{
+				Description: "List of IP network ranges being monitored.",
+				ElementType: types.StringType,
 				Computed:    true,
 			},
 			"description": schema.StringAttribute{
@@ -123,11 +125,19 @@ func (d *ShodanAlertDataSource) Read(ctx context.Context, req datasource.ReadReq
 	config.CreatedAt = types.StringValue(alert.Created)
 	config.Enabled = types.BoolValue(alert.HasTriggers)
 
-	// Extract network from filters if available
-	if ipFilters, ok := alert.Filters["ip"]; ok {
-		if ipList, ok := ipFilters.([]interface{}); ok && len(ipList) > 0 {
-			if network, ok := ipList[0].(string); ok {
-				config.Network = types.StringValue(network)
+	// Extract networks from filters if available
+	if alert.Filters != nil {
+		if ipFilters, ok := alert.Filters["ip"]; ok {
+			if ipList, ok := ipFilters.([]interface{}); ok {
+				var networks []attr.Value
+				for _, ip := range ipList {
+					if ipStr, ok := ip.(string); ok {
+						networks = append(networks, types.StringValue(ipStr))
+					}
+				}
+				if len(networks) > 0 {
+					config.Network = types.ListValueMust(types.StringType, networks)
+				}
 			}
 		}
 	}

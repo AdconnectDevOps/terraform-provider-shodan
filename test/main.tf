@@ -13,9 +13,9 @@ provider "shodan" {
 
 # Test Shodan alert with Slack notifications
 resource "shodan_alert" "test_alert" {
-  name        = "test-network-5-6-7-8"
-  network     = "5.6.7.8/32"
-  description = "Test network for IP 5.6.7.8 - Provider test with Slack"
+  name        = "test-network-multiple-ips"
+  network     = ["5.6.7.8/32", "6.1.2.3/32"]
+  description = "Test network for multiple IPs - Provider test with Slack"
   enabled     = true
   
   tags = [

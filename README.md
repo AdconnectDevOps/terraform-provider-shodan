@@ -16,6 +16,22 @@ A Terraform provider for managing Shodan network alerts and monitoring configura
 
 ## 📖 Usage
 
+### Multiple IP Support
+
+The provider now supports monitoring multiple IP addresses or network ranges in a single alert. You can specify:
+
+- **Single network**: `network = "192.168.1.0/24"`
+- **Multiple networks**: `network = ["192.168.1.0/24", "10.0.0.0/8", "172.16.0.0/12"]`
+- **Mixed IP types**: `network = ["203.0.113.1/32", "198.51.100.0/24", "192.0.2.1/32"]`
+
+This allows you to consolidate monitoring for multiple networks into fewer alerts while maintaining the same level of security monitoring.
+
+**Benefits of Multiple IP Support:**
+- **Consolidated monitoring**: Monitor multiple networks with a single alert
+- **Easier management**: Fewer alert resources to manage in Terraform
+- **Cost effective**: Reduce the number of Shodan alerts needed
+- **Flexible**: Mix different types of IP ranges (single IPs, subnets, large networks)
+
 ### Provider Configuration
 
 ```hcl
@@ -62,20 +78,11 @@ slack_notifier_ids = [
   "third-id-here"       # Team-specific channel
 ]
 ```
-```
-
-### Basic Network Monitoring
-
-```hcl
-resource "shodan_alert" "basic_monitoring" {
-  name    = "basic-network-monitoring"
-  network = "10.0.0.0/8"
-}
-```
 
 ### Comprehensive Security Monitoring
 
 ```hcl
+# Single network range
 resource "shodan_alert" "security_monitoring" {
   name        = "comprehensive-security-monitoring"
   network     = "172.16.0.0/12"
@@ -92,69 +99,12 @@ resource "shodan_alert" "security_monitoring" {
   
   notifiers = ["default"]  # Email notifications
 }
-```
 
-### Slack Integration with Email Notifications
-
-```hcl
-resource "shodan_alert" "slack_monitoring" {
-  name        = "slack-enabled-monitoring"
-  network     = "192.168.1.0/24"
-  description = "Network monitoring with Slack and email notifications"
-  
-  triggers = [
-    "malware",
-    "vulnerable",
-    "new_service"
-  ]
-  
-  notifiers = ["default"]  # Email notifications
-  
-  slack_notifications = var.slack_notifier_ids  # Uses your Slack notifier IDs
-}
-```
-
-**Example with actual Slack notifier ID:**
-```hcl
-resource "shodan_alert" "production_monitoring" {
-  name        = "production-network-monitoring"
-  network     = "10.0.0.0/8"
-  description = "Production network monitoring with Slack alerts"
-  
-  triggers = [
-    "malware",
-    "vulnerable",
-    "new_service"
-  ]
-  
-  slack_notifications = ["xxxxxxxxxxx"]  # Your actual Slack notifier ID
-}
-```
-
-### Multiple Network Monitoring
-
-```hcl
-locals {
-  networks = [
-    {
-      name        = "production"
-      network     = "192.168.1.0/24"
-      description = "Production network"
-    },
-    {
-      name        = "staging"
-      network     = "192.168.2.0/24"
-      description = "Staging network"
-    }
-  ]
-}
-
-resource "shodan_alert" "network_alerts" {
-  for_each = { for net in local.networks : net.name => net }
-  
-  name        = each.value.name
-  network     = each.value.network
-  description = each.value.description
+# Multiple specific IPs for targeted monitoring
+resource "shodan_alert" "targeted_monitoring" {
+  name        = "targeted-ip-monitoring"
+  network     = ["203.0.113.1/32", "198.51.100.1/32", "192.0.2.1/32"]
+  description = "Targeted monitoring for specific critical IPs"
   
   triggers = [
     "malware",
@@ -166,18 +116,36 @@ resource "shodan_alert" "network_alerts" {
 }
 ```
 
+### Slack Integration and Email Notifications
+
+```hcl
+resource "shodan_alert" "multi_network_slack" {
+  name        = "multi-network-slack-monitoring"
+  network     = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+  description = "Multi-network monitoring with Slack alerts"
+  
+  triggers = [
+    "malware",
+    "vulnerable",
+    "new_service"
+  ]
+  
+  notifiers = ["default"]
+  
+  slack_notifications = var.slack_notifier_ids
+}
+```
+
 ## 📚 Resources
 
 ### `shodan_alert`
-
-Manages a Shodan network alert for monitoring specific IP ranges.
 
 #### Arguments
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `name` | `string` | Yes | The name of the Shodan alert |
-| `network` | `string` | Yes | The IP network range to monitor (e.g., '192.168.1.0/24') |
+| `network` | `list(string)` | Yes | The IP network range(s) to monitor ['192.168.1.0/24', '10.0.0.0/8'] |
 | `description` | `string` | No | A description of the alert |
 | `tags` | `list(string)` | No | Tags to associate with the alert |
 | `enabled` | `bool` | No | Whether the alert is enabled (default: true) |
