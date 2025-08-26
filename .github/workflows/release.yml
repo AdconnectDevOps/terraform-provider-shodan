@@ -113,7 +113,7 @@ jobs:
           
           ### 📦 What's New
           - Automated release with multi-platform binaries
-          - Built for Go ${{ matrix.go-version }}
+          - Built for Go 1.21
           
           ### 🔧 Supported Platforms
           - **Linux**: AMD64, ARM64
