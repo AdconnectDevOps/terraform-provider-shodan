@@ -6,64 +6,11 @@
 
 A Terraform provider for managing Shodan network alerts and monitoring configurations. This provider allows you to programmatically create, manage, and monitor network security alerts using Shodan's powerful threat detection capabilities.
 
-## 🚀 Features
-
-- **Network Alert Management**: Create and manage Shodan network monitoring alerts
-- **Dual Notifications**: Support for both email and Slack notifications
-- **Comprehensive Trigger Rules**: All 12 Shodan security trigger rules supported
-- **IP Range Monitoring**: Monitor specific IP ranges (CIDR notation supported)
-- **State Management**: Full Terraform state tracking and lifecycle management
-- **Multi-Platform**: Supports Linux, macOS, and Windows (AMD64 and ARM64)
-
 ## 📋 Prerequisites
 
 - [Terraform](https://www.terraform.io/downloads.html) >= 1.0
 - [Go](https://golang.org/dl/) >= 1.21 (for development)
 - [Shodan API Key](https://account.shodan.io/)
-
-## 🔧 Installation
-
-### From GitHub Releases (Recommended)
-
-1. **Download the appropriate binary** for your platform from the [releases page](https://github.com/AdconnectDevOps/terraform-provider-shodan/releases)
-
-2. **Create the provider directory structure**:
-   ```bash
-   # For macOS ARM64 (Apple Silicon)
-   mkdir -p ~/.terraform.d/plugins/registry.terraform.io/AdconnectDevOps/shodan/0.1.0/darwin_arm64/
-   
-   # For macOS AMD64 (Intel)
-   mkdir -p ~/.terraform.d/plugins/registry.terraform.io/AdconnectDevOps/shodan/0.1.0/darwin_amd64/
-   
-   # For Linux AMD64
-   mkdir -p ~/.terraform.d/plugins/registry.terraform.io/AdconnectDevOps/shodan/0.1.0/linux_amd64/
-   
-   # For Linux ARM64
-   mkdir -p ~/.terraform.d/plugins/registry.terraform.io/AdconnectDevOps/shodan/0.1.0/linux_arm64/
-   ```
-
-3. **Install the provider**:
-   ```bash
-   # For macOS ARM64 (Apple Silicon)
-   cp terraform-provider-shodan_0.1.0_darwin_arm64 ~/.terraform.d/plugins/registry.terraform.io/AdconnectDevOps/shodan/0.1.0/darwin_arm64/terraform-provider-shodan
-   
-   # For macOS AMD64 (Intel)
-   cp terraform-provider-shodan_0.1.0_darwin_amd64 ~/.terraform.d/plugins/registry.terraform.io/AdconnectDevOps/shodan/0.1.0/darwin_amd64/terraform-provider-shodan
-   
-   # For Linux AMD64
-   cp terraform-provider-shodan_0.1.0_linux_amd64 ~/.terraform.d/plugins/registry.terraform.io/AdconnectDevOps/shodan/0.1.0/linux_amd64/terraform-provider-shodan
-   
-   # For Linux ARM64
-   cp terraform-provider-shodan_0.1.0_linux_arm64 ~/.terraform.d/plugins/registry.terraform.io/AdconnectDevOps/shodan/0.1.0/linux_arm64/terraform-provider-shodan
-   ```
-
-### From Source
-
-```bash
-git clone https://github.com/AdconnectDevOps/terraform-provider-shodan.git
-cd terraform-provider-shodan
-make install
-```
 
 ## 📖 Usage
 
@@ -108,7 +55,7 @@ slack_notifier_ids = ["xxxxxxxxxxx"]  # Replace with your actual ID
 **💡 Pro Tip**: You can have multiple Slack notifiers for different channels or teams. Just add more IDs to the list:
 ```hcl
 slack_notifier_ids = [
-  "xxxxxxxxxxx",  # Main alerts channel
+  "first-id-here",      # Main alerts channel
   "another-id-here",    # Secondary channel
   "third-id-here"       # Team-specific channel
 ]
@@ -234,7 +181,7 @@ Manages a Shodan network alert for monitoring specific IP ranges.
 | `enabled` | `bool` | No | Whether the alert is enabled (default: true) |
 | `triggers` | `list(string)` | No | List of trigger rules to enable |
 | `notifiers` | `list(string)` | No | List of notifier IDs to associate |
-| `slack_notifications` | `list(string)` | No | List of Slack channels to send notifications to |
+| `slack_notifications` | `list(string)` | No | List of Slack channels IDs to send notifications to |
 
 #### Attributes
 

@@ -46,11 +46,7 @@ jobs:
           exit 1
         fi
 
-    - name: Build binary
-      env:
-        GOOS: ${{ matrix.os }}
-        GOARCH: ${{ matrix.arch }}
-        CGO_ENABLED: 0
+    - name: Build and archive
       run: |
         # Set binary name
         BINARY_NAME="terraform-provider-shodan"
@@ -60,11 +56,26 @@ jobs:
           -o "$BINARY_NAME" .
         
         # Create archive name
-        ARCHIVE_NAME="terraform-provider-shodan_${{ github.ref_name }}_${{ matrix.os }}_${{ matrix.arch }}.tar.gz"
-        tar -czf "$ARCHIVE_NAME" "$BINARY_NAME"
+        ARCHIVE_NAME="terraform-provider-shodan_${{ github.ref_name }}_${{ matrix.os }}_${{ matrix.arch }}"
+        tar -czf "${ARCHIVE_NAME}.tar.gz" "$BINARY_NAME"
+        ARCHIVE_NAME="${ARCHIVE_NAME}.tar.gz"
         
-        echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_ENV
-        echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_ENV
+        mkdir -p artifacts/${ARCHIVE_NAME%.tar.gz}
+        mv "$ARCHIVE_NAME" artifacts/${ARCHIVE_NAME%.tar.gz}/
+        mv "$BINARY_NAME" artifacts/${ARCHIVE_NAME%.tar.gz}/ # Keep binary for SHA256SUMS
+
+    - name: Generate SHA256SUMS
+      run: |
+        cd artifacts
+        find . -type f -name "*.tar.gz" -exec sha256sum {} + > SHA256SUMS
+        mv SHA256SUMS .. # Move to root for signing and uploading
+
+    - name: Import GPG key and Sign SHA256SUMS
+      env:
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      run: |
+        echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+        gpg --batch --yes --armor --detach-sign --output SHA256SUMS.sig SHA256SUMS
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -96,6 +107,8 @@ jobs:
           artifacts/terraform-provider-shodan-linux-arm64/*.tar.gz
           artifacts/terraform-provider-shodan-darwin-amd64/*.tar.gz
           artifacts/terraform-provider-shodan-darwin-arm64/*.tar.gz
+          SHA256SUMS
+          SHA256SUMS.sig
         generate_release_notes: true
         draft: false
         prerelease: false
@@ -113,6 +126,17 @@ jobs:
           
           ### 📥 Installation
           Download the appropriate binary for your platform and follow the [installation instructions](https://github.com/AdconnectDevOps/terraform-provider-shodan#installation).
+          
+          ### ✅ Verification
+          You can verify the integrity of the downloaded files using the `SHA256SUMS` file and its signature `SHA256SUMS.sig`.
+          
+          ```bash
+          # Verify checksums
+          sha256sum --check SHA256SUMS
+          
+          # Verify signature (you'll need to import the signing key first)
+          gpg --verify SHA256SUMS.sig SHA256SUMS
+          ```
           
           ### 🔍 Changes
           See the [CHANGELOG](https://github.com/AdconnectDevOps/terraform-provider-shodan/blob/main/CHANGELOG.md) for detailed changes.
