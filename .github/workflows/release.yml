@@ -108,24 +108,24 @@ jobs:
     - name: Rename SHA256SUMS files with version prefix
       run: |
         cd artifacts
-        mv SHA256SUMS "terraform-provider-shodan_${VERSION_NUMBER}_SHA256SUMS"
-        echo "Renamed SHA256SUMS to terraform-provider-shodan_${VERSION_NUMBER}_SHA256SUMS"
+        mv SHA256SUMS "terraform-provider-shodan_$(echo "${{ github.ref_name }}" | sed 's/^v//')_SHA256SUMS"
+        echo "Renamed SHA256SUMS to terraform-provider-shodan_$(echo "${{ github.ref_name }}" | sed 's/^v//')_SHA256SUMS"
 
     - name: Import GPG key and Sign SHA256SUMS
       env:
         GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
       run: |
         echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-        gpg --batch --yes --armor --detach-sign --output "artifacts/terraform-provider-shodan_${VERSION_NUMBER}_SHA256SUMS.sig" "artifacts/terraform-provider-shodan_${VERSION_NUMBER}_SHA256SUMS"
-        echo "Generated terraform-provider-shodan_${VERSION_NUMBER}_SHA256SUMS.sig"
+        gpg --batch --yes --armor --detach-sign --output "artifacts/terraform-provider-shodan_$(echo "${{ github.ref_name }}" | sed 's/^v//')_SHA256SUMS.sig" "artifacts/terraform-provider-shodan_$(echo "${{ github.ref_name }}" | sed 's/^v//')_SHA256SUMS"
+        echo "Generated terraform-provider-shodan_$(echo "${{ github.ref_name }}" | sed 's/^v//')_SHA256SUMS.sig"
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
           artifacts/**/*.zip
-          artifacts/terraform-provider-shodan_${VERSION_NUMBER}_SHA256SUMS
-          artifacts/terraform-provider-shodan_${VERSION_NUMBER}_SHA256SUMS.sig
+          artifacts/terraform-provider-shodan_$(echo "${{ github.ref_name }}" | sed 's/^v//')_SHA256SUMS
+          artifacts/terraform-provider-shodan_$(echo "${{ github.ref_name }}" | sed 's/^v//')_SHA256SUMS.sig
         generate_release_notes: true
         draft: false
         prerelease: false
