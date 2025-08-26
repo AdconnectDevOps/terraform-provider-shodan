@@ -53,7 +53,7 @@ jobs:
         CGO_ENABLED: 0
       run: |
         # Set binary name - Terraform Registry expects: terraform-provider-{NAME}_v{VERSION}
-        BINARY_NAME="terraform-provider-shodan_v${{ github.ref_name }}"
+        BINARY_NAME="terraform-provider-shodan_${{ github.ref_name }}"
         
         # Build with version info and proper platform targeting
         go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" \
