@@ -4,7 +4,6 @@
 [![Terraform Version](https://img.shields.io/badge/terraform-1.0+-purple.svg)](https://www.terraform.io/downloads.html)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](https://github.com/AdconnectDevOps/terraform-provider-shodan/actions)
-[![Go Report Card](https://goreportcard.com/badge/github.com/AdconnectDevOps/terraform-provider-shodan)](https://goreportcard.com/report/github.com/AdconnectDevOps/terraform-provider-shodan)
 [![Release](https://img.shields.io/github/v/release/AdconnectDevOps/terraform-provider-shodan)](https://github.com/AdconnectDevOps/terraform-provider-shodan/releases)
 
 A Terraform provider for managing Shodan network alerts and monitoring configurations. This provider allows you to programmatically create, manage, and monitor network security alerts using Shodan's powerful threat detection capabilities.
