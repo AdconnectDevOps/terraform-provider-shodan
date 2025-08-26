@@ -24,7 +24,6 @@ go.work
 *.tfvars
 .terraform/
 .terraform.lock.hcl
-.terraformrc
 
 # IDE files
 .vscode/
