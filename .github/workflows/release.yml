@@ -127,8 +127,8 @@ jobs:
       with:
         files: |
           artifacts/**/*.zip
-          artifacts/terraform-provider-shodan_$(echo "${{ github.ref_name }}" | sed 's/^v//')_SHA256SUMS
-          artifacts/terraform-provider-shodan_$(echo "${{ github.ref_name }}" | sed 's/^v//')_SHA256SUMS.sig
+          artifacts/*_SHA256SUMS
+          artifacts/*_SHA256SUMS.sig
         generate_release_notes: true
         draft: false
         prerelease: false
