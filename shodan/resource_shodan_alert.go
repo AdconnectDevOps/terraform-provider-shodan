@@ -95,7 +95,6 @@ func (r *ShodanAlertResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Description: "List of Slack notifier IDs to associate with the alert. Use the notifier ID from your Shodan account settings.",
 				ElementType: types.StringType,
 				Optional:    true,
-				Computed:    true,
 			},
 			"created_at": schema.StringAttribute{
 				Description: "The timestamp when the alert was created.",
