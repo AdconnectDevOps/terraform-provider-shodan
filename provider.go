@@ -27,8 +27,8 @@ type ShodanProvider struct {
 
 // ShodanProviderModel describes the provider data model.
 type ShodanProviderModel struct {
-	ApiKey    types.String `tfsdk:"api_key"`
-	RateLimit types.Int64  `tfsdk:"rate_limit"`
+	ApiKey          types.String `tfsdk:"api_key"`
+	RequestInterval types.Int64  `tfsdk:"request_interval"`
 }
 
 func (p *ShodanProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -45,8 +45,8 @@ func (p *ShodanProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 				Required:    true,
 				Sensitive:   true,
 			},
-			"rate_limit": schema.Int64Attribute{
-				Description: "Rate limit for API requests in requests per second. Defaults to 1 if not specified.",
+			"request_interval": schema.Int64Attribute{
+				Description: "Interval between API requests in seconds. Defaults to 2 if not specified (1 request per 2 seconds).",
 				Optional:    true,
 			},
 		},
@@ -65,17 +65,17 @@ func (p *ShodanProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	// Configuration values are now available.
 	// if config.ApiKey.IsNull() { /* ... */ }
 
-	// Get rate limit from config, default to 1 if not specified
-	rateLimit := int64(2)
-	if !config.RateLimit.IsNull() {
-		rateLimit = config.RateLimit.ValueInt64()
+	// Get request interval from config, default to 2 seconds if not specified
+	requestInterval := int64(2)
+	if !config.RequestInterval.IsNull() {
+		requestInterval = config.RequestInterval.ValueInt64()
 	}
 
 	// Example client configuration for data sources and resources
 	client := &shodan.ShodanClient{
 		ApiKey:     config.ApiKey.ValueString(),
 		BaseURL:    "https://api.shodan.io",
-		HTTPClient: shodan.NewRateLimitedHTTPClient(&http.Client{}, rateLimit),
+		HTTPClient: shodan.NewRateLimitedHTTPClient(&http.Client{}, requestInterval),
 	}
 
 	resp.DataSourceData = client

@@ -8,43 +8,42 @@ import (
 
 // Package shodan provides a rate-limited HTTP client for the Shodan API.
 // The rate limiter ensures compliance with Shodan's API rate limits by
-// restricting requests to a configurable rate (defaults to 2 per second).
+// restricting requests to a configurable interval (defaults to 2 seconds between requests).
 
 // RateLimitedHTTPClient wraps an HTTP client with rate limiting.
-// It ensures that no more than the specified number of HTTP requests
-// are made per second, which is important for compliance with Shodan's
-// API rate limits. The client is thread-safe and can be used concurrently.
+// It ensures that HTTP requests are spaced at least the specified interval
+// apart, which is important for compliance with Shodan's API rate limits.
+// The client is thread-safe and can be used concurrently.
 type RateLimitedHTTPClient struct {
-	client      *http.Client // The underlying HTTP client
-	rateLimiter *time.Ticker // Ticker that controls the rate limiting (1 tick per second)
-	mu          sync.Mutex   // Mutex for thread-safe operations
+	client          *http.Client // The underlying HTTP client
+	requestInterval int64        // Minimum seconds between requests
+	lastRequest     time.Time    // Time of the last request
+	mu              sync.Mutex   // Mutex for thread-safe operations
 }
 
 // NewRateLimitedHTTPClient creates a new rate-limited HTTP client
-// that allows at most the specified number of requests per second.
+// that ensures requests are spaced at least the specified interval apart.
 // This is designed to comply with Shodan's API rate limiting requirements.
 //
-// The rate limiter uses a ticker that fires at the specified interval,
-// ensuring that requests are properly spaced out to avoid hitting rate limits.
+// The rate limiter uses a time-based approach to ensure proper spacing
+// between requests based on the specified interval.
 //
 // Parameters:
 //   - client: The underlying HTTP client to wrap with rate limiting
-//   - requestsPerSecond: Number of requests allowed per second (defaults to 1)
+//   - requestIntervalSeconds: Minimum seconds between requests (defaults to 2)
 //
 // Returns:
 //   - A new RateLimitedHTTPClient instance
-func NewRateLimitedHTTPClient(client *http.Client, requestsPerSecond int64) *RateLimitedHTTPClient {
-	// Ensure minimum rate limit of 1 request per second
-	if requestsPerSecond < 1 {
-		requestsPerSecond = 1
+func NewRateLimitedHTTPClient(client *http.Client, requestIntervalSeconds int64) *RateLimitedHTTPClient {
+	// Ensure minimum interval of 1 second between requests
+	if requestIntervalSeconds < 1 {
+		requestIntervalSeconds = 1
 	}
 
-	// Calculate ticker interval based on requests per second
-	interval := time.Duration(1000/requestsPerSecond) * time.Millisecond
-
 	return &RateLimitedHTTPClient{
-		client:      client,
-		rateLimiter: time.NewTicker(interval),
+		client:          client,
+		requestInterval: requestIntervalSeconds,
+		lastRequest:     time.Time{}, // Zero time means no previous request
 	}
 }
 
@@ -53,25 +52,31 @@ func (r *RateLimitedHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Wait for the next tick to ensure rate limiting
-	// This ensures we don't exceed 1 request per second
-	<-r.rateLimiter.C
+	// Calculate minimum time between requests based on interval
+	minInterval := time.Duration(r.requestInterval) * time.Second
+
+	// If we've made a request before, ensure proper spacing
+	if !r.lastRequest.IsZero() {
+		timeSinceLast := time.Since(r.lastRequest)
+		if timeSinceLast < minInterval {
+			// Wait for the remaining time to maintain interval
+			waitTime := minInterval - timeSinceLast
+			time.Sleep(waitTime)
+		}
+	}
+
+	// Update last request time
+	r.lastRequest = time.Now()
 
 	// Execute the request using the underlying client
 	return r.client.Do(req)
 }
 
 // Close cleans up the rate limiter resources.
-// This method stops the ticker and releases associated resources.
-// It should be called when the client is no longer needed to
-// prevent resource leaks.
+// This method is provided for interface compatibility but doesn't need
+// to do anything in the current implementation.
 //
 // The method is thread-safe and can be called concurrently.
 func (r *RateLimitedHTTPClient) Close() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.rateLimiter != nil {
-		r.rateLimiter.Stop()
-	}
+	// No resources to clean up in the current implementation
 }

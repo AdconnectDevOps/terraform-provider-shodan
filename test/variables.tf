@@ -11,8 +11,8 @@ variable "slack_notifications" {
   sensitive   = true
 }
 
-variable "rate_limit" {
-  description = "Rate limit for API requests in requests per second"
+variable "request_interval" {
+  description = "Interval between API requests in seconds"
   type        = number
   default     = 2
 }

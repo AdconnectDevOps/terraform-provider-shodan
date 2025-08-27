@@ -8,8 +8,8 @@
 
 A Terraform provider for managing Shodan network alerts and monitoring configurations. This provider allows you to programmatically create, manage, and monitor network security alerts using Shodan's powerful threat detection capabilities.
 
-**🚀 New Feature: Configurable Rate Limiting**
-The provider now includes built-in rate limiting to ensure compliance with Shodan's API limits. All API requests are automatically rate-limited to prevent hitting rate limits and ensure reliable operation. The rate limit is **configurable** and defaults to **2 requests per second**.
+**🚀 New Feature: Configurable Request Intervals**
+The provider now includes built-in rate limiting to ensure compliance with Shodan's API limits. All API requests are automatically spaced apart to prevent hitting rate limits and ensure reliable operation. The request interval is **configurable** and defaults to **2 seconds between requests**.
 
 ## 📋 Prerequisites
 
@@ -52,39 +52,39 @@ provider "shodan" {
 }
 ```
 
-### Rate Limiting
+### Request Interval Configuration
 
-The provider automatically implements rate limiting to ensure compliance with Shodan's API requirements:
+The provider automatically implements request spacing to ensure compliance with Shodan's API requirements:
 
-- **Configurable throttling**: Rate limit is configurable via the `rate_limit` provider attribute
-- **Default behavior**: Defaults to 2 requests per second if not specified
-- **Thread-safe**: Concurrent requests are properly queued and rate-limited
+- **Configurable intervals**: Request interval is configurable via the `request_interval` provider attribute
+- **Default behavior**: Defaults to 2 seconds between requests if not specified
+- **Thread-safe**: Concurrent requests are properly queued and spaced
 - **Flexible configuration**: Can be adjusted based on your Shodan API plan limits
 - **Resource cleanup**: Rate limiter resources are automatically cleaned up when the provider is closed
 
 #### Configuration Examples
 
-**Default rate limit (2 RPS):**
+**Default interval (2 seconds between requests):**
 ```hcl
 provider "shodan" {
   api_key = var.shodan_api_key
-  # rate_limit defaults to 2 if not specified
+  # request_interval defaults to 2 if not specified
 }
 ```
 
-**Custom rate limit (2 RPS):**
+**Slower requests (5 seconds between requests):**
 ```hcl
 provider "shodan" {
-  api_key    = var.shodan_api_key
-  rate_limit = 2  # 2 requests per second
+  api_key           = var.shodan_api_key
+  request_interval  = 5  # 5 seconds between requests
 }
 ```
 
-**Higher rate limit (5 RPS):**
+**Faster requests (1 second between requests):**
 ```hcl
 provider "shodan" {
-  api_key    = var.shodan_api_key
-  rate_limit = 5  # 5 requests per second
+  api_key           = var.shodan_api_key
+  request_interval  = 1  # 1 second between requests
 }
 ```
 

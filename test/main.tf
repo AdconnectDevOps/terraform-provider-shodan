@@ -8,8 +8,8 @@ terraform {
 }
 
 provider "shodan" {
-  api_key    = var.shodan_api_key
-  rate_limit = var.rate_limit
+  api_key           = var.shodan_api_key
+  request_interval  = var.request_interval
 }
 
 # Test Shodan alert with Slack notifications
@@ -47,6 +47,8 @@ resource "shodan_alert" "test_alert" {
   
   slack_notifications = var.slack_notifications
 }
+
+
 
 # Outputs
 output "alert_id" {
