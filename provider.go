@@ -64,7 +64,7 @@ func (p *ShodanProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	client := &shodan.ShodanClient{
 		ApiKey:     config.ApiKey.ValueString(),
 		BaseURL:    "https://api.shodan.io",
-		HTTPClient: &http.Client{},
+		HTTPClient: shodan.NewRateLimitedHTTPClient(&http.Client{}),
 	}
 
 	resp.DataSourceData = client

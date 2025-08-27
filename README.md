@@ -8,6 +8,9 @@
 
 A Terraform provider for managing Shodan network alerts and monitoring configurations. This provider allows you to programmatically create, manage, and monitor network security alerts using Shodan's powerful threat detection capabilities.
 
+**🚀 New Feature: Rate Limiting**
+The provider now includes built-in rate limiting to ensure compliance with Shodan's API limits. All API requests are automatically limited to **1 request per second** to prevent hitting rate limits and ensure reliable operation.
+
 ## 📋 Prerequisites
 
 - [Terraform](https://www.terraform.io/downloads.html) >= 1.0
@@ -48,6 +51,17 @@ provider "shodan" {
   api_key = var.shodan_api_key
 }
 ```
+
+### Rate Limiting
+
+The provider automatically implements rate limiting to ensure compliance with Shodan's API requirements:
+
+- **Automatic throttling**: All API requests are limited to 1 request per second
+- **Thread-safe**: Concurrent requests are properly queued and rate-limited
+- **No configuration needed**: Rate limiting is enabled by default and cannot be disabled
+- **Resource cleanup**: Rate limiter resources are automatically cleaned up when the provider is closed
+
+This feature helps prevent API rate limit errors and ensures your Terraform operations complete successfully.
 
 ### Finding Your Slack Notifier IDs
 

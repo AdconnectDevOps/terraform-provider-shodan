@@ -12,7 +12,7 @@ import (
 type ShodanClient struct {
 	ApiKey     string
 	BaseURL    string
-	HTTPClient *http.Client
+	HTTPClient *RateLimitedHTTPClient
 }
 
 // NewShodanClient creates a new Shodan API client
@@ -20,7 +20,7 @@ func NewShodanClient(apiKey string) *ShodanClient {
 	return &ShodanClient{
 		ApiKey:     apiKey,
 		BaseURL:    "https://api.shodan.io",
-		HTTPClient: &http.Client{},
+		HTTPClient: NewRateLimitedHTTPClient(&http.Client{}),
 	}
 }
 
@@ -221,6 +221,13 @@ func (c *ShodanClient) UpdateAlert(alertID string, filters map[string]interface{
 	}
 
 	return nil
+}
+
+// Close cleans up the rate limiter resources
+func (c *ShodanClient) Close() {
+	if c.HTTPClient != nil {
+		c.HTTPClient.Close()
+	}
 }
 
 // AlertResponse represents the response from Shodan API for alert operations
