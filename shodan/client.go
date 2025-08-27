@@ -20,7 +20,7 @@ func NewShodanClient(apiKey string) *ShodanClient {
 	return &ShodanClient{
 		ApiKey:     apiKey,
 		BaseURL:    "https://api.shodan.io",
-		HTTPClient: NewRateLimitedHTTPClient(&http.Client{}),
+		HTTPClient: NewRateLimitedHTTPClient(&http.Client{}, 2), // Default to 2 RPS
 	}
 }
 

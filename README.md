@@ -8,8 +8,8 @@
 
 A Terraform provider for managing Shodan network alerts and monitoring configurations. This provider allows you to programmatically create, manage, and monitor network security alerts using Shodan's powerful threat detection capabilities.
 
-**🚀 New Feature: Rate Limiting**
-The provider now includes built-in rate limiting to ensure compliance with Shodan's API limits. All API requests are automatically limited to **1 request per second** to prevent hitting rate limits and ensure reliable operation.
+**🚀 New Feature: Configurable Rate Limiting**
+The provider now includes built-in rate limiting to ensure compliance with Shodan's API limits. All API requests are automatically rate-limited to prevent hitting rate limits and ensure reliable operation. The rate limit is **configurable** and defaults to **2 requests per second**.
 
 ## 📋 Prerequisites
 
@@ -56,10 +56,37 @@ provider "shodan" {
 
 The provider automatically implements rate limiting to ensure compliance with Shodan's API requirements:
 
-- **Automatic throttling**: All API requests are limited to 1 request per second
+- **Configurable throttling**: Rate limit is configurable via the `rate_limit` provider attribute
+- **Default behavior**: Defaults to 2 requests per second if not specified
 - **Thread-safe**: Concurrent requests are properly queued and rate-limited
-- **No configuration needed**: Rate limiting is enabled by default and cannot be disabled
+- **Flexible configuration**: Can be adjusted based on your Shodan API plan limits
 - **Resource cleanup**: Rate limiter resources are automatically cleaned up when the provider is closed
+
+#### Configuration Examples
+
+**Default rate limit (2 RPS):**
+```hcl
+provider "shodan" {
+  api_key = var.shodan_api_key
+  # rate_limit defaults to 2 if not specified
+}
+```
+
+**Custom rate limit (2 RPS):**
+```hcl
+provider "shodan" {
+  api_key    = var.shodan_api_key
+  rate_limit = 2  # 2 requests per second
+}
+```
+
+**Higher rate limit (5 RPS):**
+```hcl
+provider "shodan" {
+  api_key    = var.shodan_api_key
+  rate_limit = 5  # 5 requests per second
+}
+```
 
 This feature helps prevent API rate limit errors and ensures your Terraform operations complete successfully.
 

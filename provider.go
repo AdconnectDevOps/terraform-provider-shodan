@@ -27,7 +27,8 @@ type ShodanProvider struct {
 
 // ShodanProviderModel describes the provider data model.
 type ShodanProviderModel struct {
-	ApiKey types.String `tfsdk:"api_key"`
+	ApiKey    types.String `tfsdk:"api_key"`
+	RateLimit types.Int64  `tfsdk:"rate_limit"`
 }
 
 func (p *ShodanProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -43,6 +44,10 @@ func (p *ShodanProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 				Description: "Shodan API key for authentication. Can also be set via SHODAN_API_KEY environment variable.",
 				Required:    true,
 				Sensitive:   true,
+			},
+			"rate_limit": schema.Int64Attribute{
+				Description: "Rate limit for API requests in requests per second. Defaults to 1 if not specified.",
+				Optional:    true,
 			},
 		},
 	}
@@ -60,11 +65,17 @@ func (p *ShodanProvider) Configure(ctx context.Context, req provider.ConfigureRe
 	// Configuration values are now available.
 	// if config.ApiKey.IsNull() { /* ... */ }
 
+	// Get rate limit from config, default to 1 if not specified
+	rateLimit := int64(2)
+	if !config.RateLimit.IsNull() {
+		rateLimit = config.RateLimit.ValueInt64()
+	}
+
 	// Example client configuration for data sources and resources
 	client := &shodan.ShodanClient{
 		ApiKey:     config.ApiKey.ValueString(),
 		BaseURL:    "https://api.shodan.io",
-		HTTPClient: shodan.NewRateLimitedHTTPClient(&http.Client{}),
+		HTTPClient: shodan.NewRateLimitedHTTPClient(&http.Client{}, rateLimit),
 	}
 
 	resp.DataSourceData = client

@@ -8,12 +8,12 @@ import (
 
 // Package shodan provides a rate-limited HTTP client for the Shodan API.
 // The rate limiter ensures compliance with Shodan's API rate limits by
-// restricting requests to 1 per second.
+// restricting requests to a configurable rate (defaults to 2 per second).
 
 // RateLimitedHTTPClient wraps an HTTP client with rate limiting.
-// It ensures that no more than 1 HTTP request is made per second,
-// which is important for compliance with Shodan's API rate limits.
-// The client is thread-safe and can be used concurrently.
+// It ensures that no more than the specified number of HTTP requests
+// are made per second, which is important for compliance with Shodan's
+// API rate limits. The client is thread-safe and can be used concurrently.
 type RateLimitedHTTPClient struct {
 	client      *http.Client // The underlying HTTP client
 	rateLimiter *time.Ticker // Ticker that controls the rate limiting (1 tick per second)
@@ -21,21 +21,30 @@ type RateLimitedHTTPClient struct {
 }
 
 // NewRateLimitedHTTPClient creates a new rate-limited HTTP client
-// that allows at most 1 request per second. This is designed to
-// comply with Shodan's API rate limiting requirements.
+// that allows at most the specified number of requests per second.
+// This is designed to comply with Shodan's API rate limiting requirements.
 //
-// The rate limiter uses a ticker that fires every second, ensuring
-// that requests are properly spaced out to avoid hitting rate limits.
+// The rate limiter uses a ticker that fires at the specified interval,
+// ensuring that requests are properly spaced out to avoid hitting rate limits.
 //
 // Parameters:
 //   - client: The underlying HTTP client to wrap with rate limiting
+//   - requestsPerSecond: Number of requests allowed per second (defaults to 1)
 //
 // Returns:
 //   - A new RateLimitedHTTPClient instance
-func NewRateLimitedHTTPClient(client *http.Client) *RateLimitedHTTPClient {
+func NewRateLimitedHTTPClient(client *http.Client, requestsPerSecond int64) *RateLimitedHTTPClient {
+	// Ensure minimum rate limit of 1 request per second
+	if requestsPerSecond < 1 {
+		requestsPerSecond = 1
+	}
+
+	// Calculate ticker interval based on requests per second
+	interval := time.Duration(1000/requestsPerSecond) * time.Millisecond
+
 	return &RateLimitedHTTPClient{
 		client:      client,
-		rateLimiter: time.NewTicker(1 * time.Second),
+		rateLimiter: time.NewTicker(interval),
 	}
 }
 

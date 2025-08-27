@@ -10,3 +10,9 @@ variable "slack_notifications" {
   default     = []
   sensitive   = true
 }
+
+variable "rate_limit" {
+  description = "Rate limit for API requests in requests per second"
+  type        = number
+  default     = 2
+}
