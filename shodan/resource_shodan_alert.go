@@ -243,8 +243,6 @@ func (r *ShodanAlertResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
-	// For Shodan alerts, we need to recreate if the network changes
-	// as the API doesn't support updating filters
 	var state ShodanAlertResourceModel
 	diags = req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
@@ -252,12 +250,32 @@ func (r *ShodanAlertResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
+	// Update network filters if changed
 	if !plan.Network.Equal(state.Network) {
-		resp.Diagnostics.AddError(
-			"Network change not supported",
-			"Shodan API does not support updating network filters. Please destroy and recreate the alert.",
-		)
-		return
+		var networks []string
+		plan.Network.ElementsAs(ctx, &networks, false)
+
+		filters := map[string]interface{}{
+			"ip": networks,
+		}
+
+		// Use state.ID instead of plan.ID since plan.ID might be empty during updates
+		alertID := state.ID.ValueString()
+		if alertID == "" {
+			resp.Diagnostics.AddError(
+				"Error updating Shodan alert network",
+				"Alert ID is empty, cannot update network filters",
+			)
+			return
+		}
+
+		if err := r.client.UpdateAlert(alertID, filters); err != nil {
+			resp.Diagnostics.AddError(
+				"Error updating Shodan alert network",
+				fmt.Sprintf("Could not update alert network filters, unexpected error: %s", err.Error()),
+			)
+			return
+		}
 	}
 
 	// Update triggers if changed
@@ -268,7 +286,7 @@ func (r *ShodanAlertResource) Update(ctx context.Context, req resource.UpdateReq
 			var triggers []types.String
 			plan.Triggers.ElementsAs(ctx, &triggers, false)
 			for _, trigger := range triggers {
-				if err := r.client.AddTrigger(plan.ID.ValueString(), trigger.ValueString()); err != nil {
+				if err := r.client.AddTrigger(state.ID.ValueString(), trigger.ValueString()); err != nil {
 					tflog.Warn(ctx, fmt.Sprintf("Failed to add trigger %s: %s", trigger.ValueString(), err.Error()))
 				}
 			}
@@ -283,7 +301,7 @@ func (r *ShodanAlertResource) Update(ctx context.Context, req resource.UpdateReq
 			var notifiers []types.String
 			plan.Notifiers.ElementsAs(ctx, &notifiers, false)
 			for _, notifier := range notifiers {
-				if err := r.client.AddNotifier(plan.ID.ValueString(), notifier.ValueString()); err != nil {
+				if err := r.client.AddNotifier(state.ID.ValueString(), notifier.ValueString()); err != nil {
 					tflog.Warn(ctx, fmt.Sprintf("Failed to add notifier %s: %s", notifier.ValueString(), err.Error()))
 				}
 			}
@@ -298,14 +316,46 @@ func (r *ShodanAlertResource) Update(ctx context.Context, req resource.UpdateReq
 			var slackChannels []types.String
 			plan.SlackNotifications.ElementsAs(ctx, &slackChannels, false)
 			for _, channel := range slackChannels {
-				if err := r.client.AddSlackNotifier(plan.ID.ValueString(), channel.ValueString()); err != nil {
+				if err := r.client.AddSlackNotifier(state.ID.ValueString(), channel.ValueString()); err != nil {
 					tflog.Warn(ctx, fmt.Sprintf("Failed to add Slack notification for channel %s: %s", channel.ValueString(), err.Error()))
 				}
 			}
 		}
 	}
 
-	// Set state
+	// After all updates, read the current state from the API to ensure computed fields are set correctly
+	updatedAlert, err := r.client.GetAlert(state.ID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error reading updated Shodan alert",
+			fmt.Sprintf("Could not read updated alert %s, unexpected error: %s", state.ID.ValueString(), err.Error()),
+		)
+		return
+	}
+
+	// Update the plan with the latest values from the API
+	plan.ID = types.StringValue(updatedAlert.ID)
+	plan.CreatedAt = types.StringValue(updatedAlert.Created)
+	plan.Enabled = types.BoolValue(updatedAlert.HasTriggers)
+
+	// Extract networks from filters if available
+	if updatedAlert.Filters != nil {
+		if ipFilters, ok := updatedAlert.Filters["ip"]; ok {
+			if ipList, ok := ipFilters.([]interface{}); ok {
+				var networks []attr.Value
+				for _, ip := range ipList {
+					if ipStr, ok := ip.(string); ok {
+						networks = append(networks, types.StringValue(ipStr))
+					}
+				}
+				if len(networks) > 0 {
+					plan.Network = types.ListValueMust(types.StringType, networks)
+				}
+			}
+		}
+	}
+
+	// Set state with updated values
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
 }

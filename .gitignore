@@ -4,7 +4,7 @@
 *.dll
 *.so
 *.dylib
-terraform-provider-shodan
+terraform-provider-shodan*
 
 # Test binary, built with `go test -c`
 *.test

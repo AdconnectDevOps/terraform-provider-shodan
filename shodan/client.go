@@ -182,6 +182,47 @@ func (c *ShodanClient) DeleteAlert(alertID string) error {
 	return fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 }
 
+// UpdateAlert updates an existing alert's network filters
+func (c *ShodanClient) UpdateAlert(alertID string, filters map[string]interface{}) error {
+	// Add validation for alertID
+	if alertID == "" {
+		return fmt.Errorf("alert ID cannot be empty")
+	}
+
+	payload := map[string]interface{}{
+		"filters": filters,
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal alert update payload: %w", err)
+	}
+
+	// Construct the URL and log it for debugging
+	url := fmt.Sprintf("%s/shodan/alert/%s?key=%s", c.BaseURL, alertID, c.ApiKey)
+
+	// Use the POST /shodan/alert/{id} endpoint as per Shodan API documentation
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
 // AlertResponse represents the response from Shodan API for alert operations
 type AlertResponse struct {
 	ID          string                 `json:"id"`

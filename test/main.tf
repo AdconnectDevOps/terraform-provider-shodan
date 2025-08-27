@@ -2,7 +2,7 @@ terraform {
   required_providers {
     shodan = {
       source = "AdconnectDevOps/shodan"
-      version = "~> 0.1"
+      version = "0.1.0"
     }
   }
 }
