@@ -201,7 +201,7 @@ resource "shodan_alert" "multi_network_slack" {
 | `id` | `string` | The unique identifier for the Shodan alert |
 | `created_at` | `string` | The timestamp when the alert was created |
 
-## 🔔 Available Trigger Rules
+##  Available Trigger Rules
 
 The following trigger rules are available for Shodan alerts:
 
