@@ -20,7 +20,7 @@ A Terraform provider for managing Shodan network alerts and monitoring configura
 
 The provider now supports monitoring multiple IP addresses or network ranges in a single alert. You can specify:
 
-- **Single network**: `network = "192.168.1.0/24"`
+- **Single network**: `network = ["192.168.1.0/24"]`
 - **Multiple networks**: `network = ["192.168.1.0/24", "10.0.0.0/8", "172.16.0.0/12"]`
 - **Mixed IP types**: `network = ["203.0.113.1/32", "198.51.100.0/24", "192.0.2.1/32"]`
 
@@ -85,7 +85,7 @@ slack_notifier_ids = [
 # Single network range
 resource "shodan_alert" "security_monitoring" {
   name        = "comprehensive-security-monitoring"
-  network     = "172.16.0.0/12"
+  network     = ["172.16.0.0/12"]
   description = "Comprehensive security monitoring for internal network"
   
   triggers = [
