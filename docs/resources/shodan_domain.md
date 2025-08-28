@@ -11,10 +11,34 @@ The `shodan_domain` resource allows you to monitor a domain for security threats
 ## Example Usage
 
 ### Basic Domain Monitoring
+
 ```hcl
-# Monitor a domain with default settings
-resource "shodan_domain" "basic_monitoring" {
+resource "shodan_domain" "example" {
   domain = "example.com"
+  name   = "Example Domain Security"
+}
+```
+
+### Domain Monitoring with Slack Notifications
+
+```hcl
+resource "shodan_domain" "slack_example" {
+  domain      = "example.com"
+  name        = "Example Domain with Slack Alerts"
+  description = "Monitor domain with Slack notifications"
+  
+  triggers = [
+    "malware",
+    "vulnerable",
+    "new_service",
+    "ssl_expired"
+  ]
+  
+  # Use your actual Slack notifier ID from Shodan account settings
+  slack_notifications = ["slack_12345"]
+  
+  # You can also use regular notifiers alongside Slack
+  notifiers = ["default"]
 }
 ```
 
@@ -218,3 +242,4 @@ Domain monitoring alerts can be imported using their alert ID:
 ```bash
 terraform import shodan_domain.example BVJ6BXDDODSKP9WZ
 ```
+

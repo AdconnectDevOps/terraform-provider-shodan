@@ -15,3 +15,15 @@ variable "shodan_api_key" {
   type        = string
   sensitive   = true
 }
+
+variable "slack_notifications" {
+  description = "List of Slack notifier IDs from your Shodan account settings"
+  type        = list(string)
+  default     = []
+}
+
+variable "request_interval" {
+  description = "Request interval in seconds between API calls"
+  type        = number
+  default     = 1
+}

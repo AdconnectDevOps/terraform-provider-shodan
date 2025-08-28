@@ -24,14 +24,15 @@ type ShodanDomainResource struct {
 
 // ShodanDomainResourceModel describes the resource data model.
 type ShodanDomainResourceModel struct {
-	ID          types.String   `tfsdk:"id"`
-	Domain      types.String   `tfsdk:"domain"`
-	Name        types.String   `tfsdk:"name"`
-	Description types.String   `tfsdk:"description"`
-	Enabled     types.Bool     `tfsdk:"enabled"`
-	Triggers    []types.String `tfsdk:"triggers"`
-	Notifiers   []types.String `tfsdk:"notifiers"`
-	CreatedAt   types.String   `tfsdk:"created_at"`
+	ID                 types.String   `tfsdk:"id"`
+	Domain             types.String   `tfsdk:"domain"`
+	Name               types.String   `tfsdk:"name"`
+	Description        types.String   `tfsdk:"description"`
+	Enabled            types.Bool     `tfsdk:"enabled"`
+	Triggers           []types.String `tfsdk:"triggers"`
+	Notifiers          []types.String `tfsdk:"notifiers"`
+	SlackNotifications []types.String `tfsdk:"slack_notifications"`
+	CreatedAt          types.String   `tfsdk:"created_at"`
 }
 
 func NewShodanDomainResource() resource.Resource {
@@ -74,6 +75,11 @@ func (r *ShodanDomainResource) Schema(ctx context.Context, req resource.SchemaRe
 			},
 			"notifiers": schema.ListAttribute{
 				Description: "List of notifier IDs to associate with the domain alert.",
+				ElementType: types.StringType,
+				Optional:    true,
+			},
+			"slack_notifications": schema.ListAttribute{
+				Description: "List of Slack notification IDs to associate with the domain alert.",
 				ElementType: types.StringType,
 				Optional:    true,
 			},
@@ -150,6 +156,19 @@ func (r *ShodanDomainResource) Create(ctx context.Context, req resource.CreateRe
 				resp.Diagnostics.AddWarning(
 					"Warning adding notifier",
 					fmt.Sprintf("Could not add notifier %s: %s", notifier.ValueString(), err.Error()),
+				)
+			}
+		}
+	}
+
+	// Add Slack notifications if specified
+	if len(data.SlackNotifications) > 0 {
+		for _, slackNotifier := range data.SlackNotifications {
+			err := r.client.AddNotifier(alertResp.ID, slackNotifier.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddWarning(
+					"Warning adding Slack notifier",
+					fmt.Sprintf("Could not add Slack notifier %s: %s", slackNotifier.ValueString(), err.Error()),
 				)
 			}
 		}

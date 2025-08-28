@@ -91,6 +91,28 @@ resource "shodan_domain" "multiple_domains" {
   notifiers = ["default"]
 }
 
+# Domain monitoring with Slack notifications
+resource "shodan_domain" "slack_monitoring" {
+  domain      = "github.com"
+  name        = "GitHub with Slack Alerts"
+  description = "Monitor GitHub domain with Slack notifications"
+  enabled     = true
+  
+  triggers = [
+    "malware",
+    "vulnerable",
+    "new_service",
+    "ssl_expired",
+    "iot"
+  ]
+  
+  # Use your actual Slack notifier ID from Shodan account settings
+  slack_notifications = ["slack_12345", "slack_67890"]  # Replace with actual IDs
+  
+  # You can also use regular notifiers alongside Slack
+  notifiers = ["default"]
+}
+
 # Outputs
 output "example_domain_info" {
   description = "Information about example.com domain"

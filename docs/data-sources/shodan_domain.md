@@ -150,3 +150,4 @@ output "compliance_status" {
 - [`shodan_domain` resource](../resources/shodan_domain.md) - Monitor a domain for security threats
 - [`shodan_alert` resource](../resources/shodan_alert.md) - Create network monitoring alerts
 - [`shodan_alert` data source](../data-sources/shodan_alert.md) - Retrieve alert information
+

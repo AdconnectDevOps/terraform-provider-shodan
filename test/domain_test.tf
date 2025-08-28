@@ -23,6 +23,24 @@ resource "shodan_domain" "test_domain_monitoring" {
   notifiers = ["default"]
 }
 
+# Test domain monitoring with Slack notifications
+resource "shodan_domain" "test_domain_slack" {
+  domain      = "google.com"
+  name        = "Google Domain with Slack Notifications"
+  description = "Monitor Google domain with Slack alerts"
+  enabled     = true
+  
+  triggers = [
+    "malware",
+    "vulnerable",
+    "new_service",
+    "ssl_expired"
+  ]
+  
+  # Use your actual Slack notifier ID from Shodan account settings
+  slack_notifications = ["slack_12345"]  # Replace with your actual Slack notifier ID
+}
+
 # Outputs
 output "domain_info" {
   description = "Information about the test domain"

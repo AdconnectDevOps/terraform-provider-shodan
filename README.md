@@ -59,6 +59,9 @@ resource "shodan_domain" "example_monitoring" {
   ]
   
   notifiers = ["default"]
+  
+  # Enable Slack notifications
+  slack_notifications = ["slack_12345"]
 }
 
 # Get domain information
@@ -78,8 +81,17 @@ data "shodan_domain" "example_info" {
 - **Dynamic Monitoring**: Automatically adapts to IP address changes
 - **Comprehensive Coverage**: Monitors all IP addresses associated with a domain
 - **Easy Management**: Monitor domains instead of individual IP ranges
+- **Slack Integration**: Direct Slack notification support for real-time alerts
 
-### Provider Configuration
+## Guides
+
+The provider includes comprehensive guides to help you get started:
+
+- **[Getting Started Guide](docs/guides/getting-started.md)** - Basic setup, configuration, and first steps
+- **[Domain Monitoring Guide](docs/guides/domain_monitoring.md)** - Learn how to monitor domains for security threats with automatic IP resolution
+- **[Network Monitoring Guide](docs/guides/network_monitoring.md)** - Create comprehensive security alerts for networks, subnets, and IP ranges
+
+## Provider Configuration
 
 ```hcl
 terraform {

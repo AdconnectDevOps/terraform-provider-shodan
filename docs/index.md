@@ -13,8 +13,9 @@ Use the navigation to the left to read about the available resources and data so
 
 ## Quick Start Guides
 
-- **[Domain Monitoring Guide](guides/domain_monitoring.md)** - Learn how to monitor domains for security threats
-- **Network Monitoring** - Create alerts for IP networks and ranges
+- [Getting Started Guide](guides/getting-started.md) - Basic setup and configuration
+- [Domain Monitoring Guide](guides/domain_monitoring.md) - Monitor domains for security threats
+- [Network Monitoring Guide](guides/network_monitoring.md) - Monitor networks and IP ranges for security threats
 
 ## Example Usage
 

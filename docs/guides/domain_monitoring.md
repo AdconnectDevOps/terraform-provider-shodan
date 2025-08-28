@@ -128,6 +128,54 @@ resource "shodan_domain" "enterprise_domains" {
 }
 ```
 
+## Advanced Configuration
+
+### Custom Triggers
+
+You can customize which security events trigger alerts:
+
+```hcl
+resource "shodan_domain" "custom_triggers" {
+  domain = "example.com"
+  name   = "Custom Trigger Monitoring"
+  
+  triggers = [
+    "malware",           # Detect malware infections
+    "vulnerable",        # Find vulnerable services
+    "new_service",       # Alert on new services
+    "ssl_expired",       # SSL certificate expiration
+    "iot",               # Internet of Things devices
+    "open_database"      # Open database instances
+  ]
+}
+```
+
+### Slack Notifications
+
+Enable Slack notifications by specifying your Slack notifier IDs:
+
+```hcl
+resource "shodan_domain" "slack_monitoring" {
+  domain      = "example.com"
+  name        = "Slack-Enabled Monitoring"
+  description = "Domain monitoring with Slack alerts"
+  
+  triggers = [
+    "malware",
+    "vulnerable",
+    "new_service"
+  ]
+  
+  # Use your actual Slack notifier ID from Shodan account settings
+  slack_notifications = ["slack_12345"]
+  
+  # You can combine with regular notifiers
+  notifiers = ["default"]
+}
+```
+
+**Note:** To get your Slack notifier ID, go to your Shodan account settings and configure Slack integrations.
+
 ## Domain Information Retrieval
 
 ### Get Domain Details
@@ -376,3 +424,4 @@ output "debug_info" {
 - [`shodan_domain` data source](../data-sources/shodan_domain.md) - Data source documentation
 - [`shodan_alert` resource](../resources/shodan_alert.md) - Network monitoring alerts
 - [Examples](../../examples/domain_monitoring.tf) - Complete working examples
+
