@@ -7,9 +7,14 @@ description: |-
 
 # Shodan Provider
 
-The Terraform Provider for Shodan allows you to manage Shodan network alerts and monitoring configurations using Terraform. This provider enables infrastructure as code for security monitoring, letting you programmatically create, update, and manage Shodan alerts.
+The Terraform Provider for Shodan allows you to manage Shodan network alerts and domain monitoring configurations using Terraform. This provider enables infrastructure as code for security monitoring, letting you programmatically create, update, and manage Shodan alerts and domain monitoring.
 
 Use the navigation to the left to read about the available resources and data sources.
+
+## Quick Start Guides
+
+- **[Domain Monitoring Guide](guides/domain_monitoring.md)** - Learn how to monitor domains for security threats
+- **Network Monitoring** - Create alerts for IP networks and ranges
 
 ## Example Usage
 
@@ -43,6 +48,27 @@ resource "shodan_alert" "security_monitoring" {
   
   notifiers = ["default"]
 }
+
+# Domain monitoring example
+resource "shodan_domain" "domain_monitoring" {
+  domain      = "company.com"
+  name        = "Company Domain Security"
+  description = "Monitor company domain for security threats"
+  
+  triggers = [
+    "malware",
+    "vulnerable",
+    "new_service",
+    "ssl_expired"
+  ]
+  
+  notifiers = ["default"]
+}
+
+# Get domain information
+data "shodan_domain" "domain_info" {
+  domain = "company.com"
+}
 ```
 
 ## Authentication
@@ -68,6 +94,7 @@ provider "shodan" {
 
 ## Features
 
+- **Domain Monitoring**: Monitor domains for security threats with automatic IP resolution
 - **Multiple IP Support**: Monitor multiple networks with single alerts
 - **Built-in Rate Limiting**: Automatic API rate limiting to prevent hitting Shodan limits
 - **Slack Integration**: Direct Slack notifications for security alerts
@@ -80,6 +107,7 @@ provider "shodan" {
 2. **Configure authentication** with your Shodan API key
 3. **Create your first alert** using the `shodan_alert` resource
 4. **Monitor your networks** for security threats
+5. **Monitor domains** using the `shodan_domain` resource for comprehensive coverage
 
 ## Support
 

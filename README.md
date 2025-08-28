@@ -6,10 +6,14 @@
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](https://github.com/AdconnectDevOps/terraform-provider-shodan/actions)
 [![Release](https://img.shields.io/github/v/release/AdconnectDevOps/terraform-provider-shodan)](https://github.com/AdconnectDevOps/terraform-provider-shodan/releases)
 
-A Terraform provider for managing Shodan network alerts and monitoring configurations. This provider allows you to programmatically create, manage, and monitor network security alerts using Shodan's powerful threat detection capabilities.
+A Terraform provider for managing Shodan network alerts and domain monitoring configurations. This provider allows you to programmatically create, manage, and monitor network security alerts and domains using Shodan's powerful threat detection capabilities.
 
-**🚀 New Feature: Configurable Request Intervals**
-The provider now includes built-in rate limiting to ensure compliance with Shodan's API limits. All API requests are automatically spaced apart to prevent hitting rate limits and ensure reliable operation. The request interval is **configurable** and defaults to **2 seconds between requests**.
+**🚀 New Features:**
+- **Domain Monitoring**: Monitor domains for security threats with automatic IP resolution
+- **Configurable Request Intervals**: Built-in rate limiting to ensure compliance with Shodan's API limits
+- **Multiple IP Support**: Monitor multiple networks with single alerts
+
+All API requests are automatically spaced apart to prevent hitting rate limits and ensure reliable operation. The request interval is **configurable** and defaults to **2 seconds between requests**.
 
 ## 📋 Prerequisites
 
@@ -34,6 +38,46 @@ This allows you to consolidate monitoring for multiple networks into fewer alert
 - **Easier management**: Fewer alert resources to manage in Terraform
 - **Cost effective**: Reduce the number of Shodan alerts needed
 - **Flexible**: Mix different types of IP ranges (single IPs, subnets, large networks)
+
+### Domain Monitoring
+
+The provider now supports monitoring domains for security threats with automatic IP resolution:
+
+```hcl
+# Monitor a domain for security threats
+resource "shodan_domain" "example_monitoring" {
+  domain      = "example.com"
+  name        = "Example Domain Security Monitoring"
+  description = "Monitor example.com for security threats"
+  enabled     = true
+  
+  triggers = [
+    "malware",
+    "vulnerable",
+    "new_service",
+    "ssl_expired"
+  ]
+  
+  notifiers = ["default"]
+}
+
+# Get domain information
+data "shodan_domain" "example_info" {
+  domain = "example.com"
+}
+```
+
+**How Domain Monitoring Works:**
+1. **Automatic IP Resolution**: The provider automatically resolves domains to IP addresses using Shodan's DNS API
+2. **Alert Creation**: Creates a Shodan alert with the resolved IP addresses
+3. **Naming Convention**: Uses `__domain: {domain}` format for automatic domain alerts
+4. **IP Monitoring**: Monitors all IP addresses associated with the domain for security threats
+
+**Benefits of Domain Monitoring:**
+- **Automatic IP Discovery**: No need to manually track IP addresses for domains
+- **Dynamic Monitoring**: Automatically adapts to IP address changes
+- **Comprehensive Coverage**: Monitors all IP addresses associated with a domain
+- **Easy Management**: Monitor domains instead of individual IP ranges
 
 ### Provider Configuration
 
@@ -200,6 +244,46 @@ resource "shodan_alert" "multi_network_slack" {
 |------|------|-------------|
 | `id` | `string` | The unique identifier for the Shodan alert |
 | `created_at` | `string` | The timestamp when the alert was created |
+
+### `shodan_domain`
+
+#### Arguments
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `domain` | `string` | Yes | The domain name to monitor (e.g., 'example.com') |
+| `name` | `string` | No | Optional custom name for the alert. If not provided, will use '__domain: {domain}' format |
+| `description` | `string` | No | Optional description of the domain monitoring alert |
+| `enabled` | `bool` | No | Whether the domain monitoring alert is enabled (default: true) |
+| `triggers` | `list(string)` | No | List of trigger rules to enable for domain monitoring |
+| `notifiers` | `list(string)` | No | List of notifier IDs to associate with the domain alert |
+
+#### Attributes
+
+| Name | Type | Description |
+|------|------|-------------|
+| `id` | `string` | The unique identifier for the Shodan domain alert |
+| `created_at` | `string` | The timestamp when the domain alert was created |
+
+## 📊 Data Sources
+
+### `shodan_domain`
+
+#### Arguments
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `domain` | `string` | Yes | The domain name to lookup (e.g., 'example.com') |
+
+#### Attributes
+
+| Name | Type | Description |
+|------|------|-------------|
+| `domain` | `string` | The domain name that was looked up |
+| `tags` | `list(string)` | Tags associated with the domain |
+| `subdomains` | `list(string)` | List of subdomains found for the domain |
+| `data` | `list(object)` | DNS records and other data for the domain |
+| `more` | `bool` | Whether there are more results available |
 
 ##  Available Trigger Rules
 

@@ -12,53 +12,114 @@ provider "shodan" {
 }
 
 variable "shodan_api_key" {
-  description = "Your Shodan API key"
+  description = "Shodan API key for authentication"
   type        = string
   sensitive   = true
 }
 
-# Data source to get domain information
-data "shodan_domain" "example" {
+# Get domain information
+data "shodan_domain" "example_domain" {
   domain = "example.com"
 }
 
-# Output domain information
-output "domain_info" {
-  description = "Information about the example.com domain"
-  value = {
-    domain     = data.shodan_domain.example.domain
-    tags       = data.shodan_domain.example.tags
-    subdomains = data.shodan_domain.example.subdomains
-    dns_records = data.shodan_domain.example.data
-  }
+# Basic domain monitoring
+resource "shodan_domain" "basic_monitoring" {
+  domain = "example.com"
 }
 
-# Resource to monitor a domain for security threats
-resource "shodan_domain" "example_monitoring" {
-  domain      = "example.com"
-  name        = "Example Domain Security Monitoring"
-  description = "Monitor example.com for security threats and vulnerabilities"
+# Custom domain monitoring with specific triggers
+resource "shodan_domain" "custom_monitoring" {
+  domain      = "google.com"
+  name        = "Google Domain Security Monitoring"
+  description = "Monitor Google's domain for security threats"
   enabled     = true
   
   triggers = [
     "malware",
     "vulnerable",
     "new_service",
-    "open_database",
-    "ssl_expired",
-    "iot"
+    "ssl_expired"
   ]
   
   notifiers = ["default"]
 }
 
-# Output the created domain alert
-output "domain_alert" {
-  description = "Information about the created domain monitoring alert"
+# Comprehensive security monitoring
+resource "shodan_domain" "comprehensive_monitoring" {
+  domain      = "github.com"
+  name        = "GitHub Comprehensive Security"
+  description = "Comprehensive security monitoring for GitHub"
+  enabled     = true
+  
+  triggers = [
+    "malware",
+    "vulnerable",
+    "vulnerable_unverified",
+    "new_service",
+    "open_database",
+    "ssl_expired",
+    "iot",
+    "end_of_life",
+    "industrial_control_system",
+    "internet_scanner",
+    "uncommon",
+    "uncommon_plus"
+  ]
+  
+  notifiers = ["default"]
+}
+
+# Monitor multiple domains using for_each
+resource "shodan_domain" "multiple_domains" {
+  for_each = toset([
+    "cloudflare.com",
+    "amazon.com",
+    "microsoft.com"
+  ])
+  
+  domain      = each.value
+  name        = "Enterprise Domain: ${each.value}"
+  description = "Monitor enterprise domain for security threats"
+  
+  triggers = [
+    "malware",
+    "vulnerable",
+    "new_service",
+    "ssl_expired"
+  ]
+  
+  notifiers = ["default"]
+}
+
+# Outputs
+output "example_domain_info" {
+  description = "Information about example.com domain"
   value = {
-    id         = shodan_domain.example_monitoring.id
-    domain     = shodan_domain.example_monitoring.domain
-    name       = shodan_domain.example_monitoring.name
-    created_at = shodan_domain.example_monitoring.created_at
+    domain     = data.shodan_domain.example_domain.domain
+    tags       = data.shodan_domain.example_domain.tags
+    subdomains = data.shodan_domain.example_domain.subdomains
+    dns_records_count = length(data.shodan_domain.example_domain.data)
+  }
+}
+
+output "basic_monitoring_id" {
+  description = "ID of the basic domain monitoring alert"
+  value       = shodan_domain.basic_monitoring.id
+}
+
+output "custom_monitoring_id" {
+  description = "ID of the custom domain monitoring alert"
+  value       = shodan_domain.custom_monitoring.id
+}
+
+output "comprehensive_monitoring_id" {
+  description = "ID of the comprehensive domain monitoring alert"
+  value       = shodan_domain.comprehensive_monitoring.id
+}
+
+output "multiple_domains_ids" {
+  description = "IDs of all multiple domain monitoring alerts"
+  value = {
+    for domain, resource in shodan_domain.multiple_domains : domain => resource.id
   }
 }
