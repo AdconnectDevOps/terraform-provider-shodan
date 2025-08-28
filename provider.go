@@ -85,12 +85,14 @@ func (p *ShodanProvider) Configure(ctx context.Context, req provider.ConfigureRe
 func (p *ShodanProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		shodan.NewShodanAlertResource,
+		shodan.NewShodanDomainResource,
 	}
 }
 
 func (p *ShodanProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
 		shodan.NewShodanAlertDataSource,
+		shodan.NewShodanDomainDataSource,
 	}
 }
 

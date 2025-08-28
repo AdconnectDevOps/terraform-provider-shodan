@@ -1,17 +1,3 @@
-terraform {
-  required_providers {
-    shodan = {
-      source = "AdconnectDevOps/shodan"
-      version = "0.1.0"
-    }
-  }
-}
-
-provider "shodan" {
-  api_key           = var.shodan_api_key
-  request_interval  = var.request_interval
-}
-
 # Test Shodan alert with Slack notifications
 resource "shodan_alert" "test_alert" {
   name        = "test-network-multiple-ips"
