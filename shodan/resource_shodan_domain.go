@@ -134,8 +134,8 @@ func (r *ShodanDomainResource) Create(ctx context.Context, req resource.CreateRe
 		}
 	}
 
-	// Create domain alert
-	alertResp, err := r.client.CreateDomainAlert(data.Name.ValueString(), data.Domain.ValueString(), triggers)
+	// Create domain alert without triggers first
+	alertResp, err := r.client.CreateDomainAlert(data.Name.ValueString(), data.Domain.ValueString(), nil)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating domain alert",
@@ -148,7 +148,20 @@ func (r *ShodanDomainResource) Create(ctx context.Context, req resource.CreateRe
 	data.ID = types.StringValue(alertResp.ID)
 	data.CreatedAt = types.StringValue(alertResp.Created)
 
-	// Add notifiers if specified
+	// Add triggers if specified
+	if len(triggers) > 0 {
+		for _, trigger := range triggers {
+			err := r.client.AddTrigger(alertResp.ID, trigger)
+			if err != nil {
+				resp.Diagnostics.AddWarning(
+					"Warning adding trigger",
+					fmt.Sprintf("Could not add trigger %s: %s", trigger, err.Error()),
+				)
+			}
+		}
+	}
+
+	// Add notifiers if specified (after triggers are set)
 	if len(data.Notifiers) > 0 {
 		for _, notifier := range data.Notifiers {
 			err := r.client.AddNotifier(alertResp.ID, notifier.ValueString())
@@ -161,7 +174,7 @@ func (r *ShodanDomainResource) Create(ctx context.Context, req resource.CreateRe
 		}
 	}
 
-	// Add Slack notifications if specified
+	// Add Slack notifications if specified (after triggers are set)
 	if len(data.SlackNotifications) > 0 {
 		for _, slackNotifier := range data.SlackNotifications {
 			err := r.client.AddNotifier(alertResp.ID, slackNotifier.ValueString())
@@ -246,6 +259,19 @@ func (r *ShodanDomainResource) Update(ctx context.Context, req resource.UpdateRe
 
 		data.ID = types.StringValue(alertResp.ID)
 		data.CreatedAt = types.StringValue(alertResp.Created)
+
+		// Add triggers if specified
+		if len(data.Triggers) > 0 {
+			for _, trigger := range data.Triggers {
+				err := r.client.AddTrigger(alertResp.ID, trigger.ValueString())
+				if err != nil {
+					resp.Diagnostics.AddWarning(
+						"Warning adding trigger",
+						fmt.Sprintf("Could not add trigger %s: %s", trigger.ValueString(), err.Error()),
+					)
+				}
+			}
+		}
 	}
 
 	// Save data into Terraform state
