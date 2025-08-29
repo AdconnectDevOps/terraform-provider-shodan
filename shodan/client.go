@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 )
 
@@ -274,33 +275,28 @@ func (c *ShodanClient) GetDomainInfo(domain string) (*DomainInfo, error) {
 	return &domainInfo, nil
 }
 
+// ResolveDomain resolves a domain to its actual IP addresses using system DNS
+func (c *ShodanClient) ResolveDomain(domain string) ([]string, error) {
+	ips, err := net.LookupHost(domain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve domain %s: %w", domain, err)
+	}
+	return ips, nil
+}
+
 // CreateDomainAlert creates a new Shodan alert for monitoring a domain
 func (c *ShodanClient) CreateDomainAlert(name string, domain string, triggers []string) (*AlertResponse, error) {
-	// First, get the domain information to extract IP addresses
-	domainInfo, err := c.GetDomainInfo(domain)
+	// Use proper DNS resolution instead of trusting Shodan's historical data
+	ips, err := c.ResolveDomain(domain)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get domain info: %w", err)
-	}
-
-	// Extract unique IP addresses from the domain data
-	ipSet := make(map[string]bool)
-	for _, record := range domainInfo.Data {
-		if record.Type == "A" || record.Type == "AAAA" {
-			ipSet[record.Value] = true
-		}
-	}
-
-	// Convert to slice
-	var ips []string
-	for ip := range ipSet {
-		ips = append(ips, ip)
+		return nil, fmt.Errorf("failed to resolve domain %s: %w", domain, err)
 	}
 
 	if len(ips) == 0 {
 		return nil, fmt.Errorf("no IP addresses found for domain %s", domain)
 	}
 
-	// Create filters for the alert
+	// Create filters for the alert using only the actually resolved IPs
 	filters := map[string]interface{}{
 		"ip": ips,
 	}
