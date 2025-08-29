@@ -23,6 +23,7 @@ resource "shodan_alert" "related_alert" {
   description = "Related alert based on existing configuration"
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable"
   ]

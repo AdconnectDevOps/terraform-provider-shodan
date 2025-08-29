@@ -64,6 +64,7 @@ resource "shodan_alert" "my_first_alert" {
   description = "Monitoring my home network for security threats"
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service"

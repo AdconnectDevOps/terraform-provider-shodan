@@ -25,6 +25,7 @@ resource "shodan_alert" "production_network" {
   ]
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service",
@@ -53,6 +54,7 @@ resource "shodan_alert" "dmz_network" {
   ]
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "internet_scanner",

@@ -63,6 +63,7 @@ resource "shodan_domain" "custom" {
   enabled     = true
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service",
@@ -85,6 +86,7 @@ resource "shodan_domain" "comprehensive" {
   enabled     = true
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "vulnerable_unverified",

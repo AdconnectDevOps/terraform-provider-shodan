@@ -52,6 +52,7 @@ resource "shodan_alert" "basic" {
   description = "Basic security monitoring for home network"
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service"
@@ -76,6 +77,7 @@ resource "shodan_alert" "custom" {
   enabled     = true
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service",
@@ -100,6 +102,7 @@ resource "shodan_alert" "comprehensive" {
   enabled     = true
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "vulnerable_unverified",
@@ -221,6 +224,7 @@ resource "shodan_alert" "critical_hosts" {
   description = "Monitor critical production hosts"
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service",
@@ -286,6 +290,7 @@ resource "shodan_alert" "enterprise" {
 Start with these core security triggers:
 ```hcl
 triggers = [
+  "ai",             # Detect AI-related services
   "malware",        # Detect malware infections
   "vulnerable",     # Find vulnerable services
   "new_service"     # Alert on new services

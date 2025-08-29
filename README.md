@@ -52,6 +52,7 @@ resource "shodan_domain" "example_monitoring" {
   enabled     = true
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service",
@@ -186,6 +187,7 @@ resource "shodan_alert" "security_monitoring" {
   description = "Comprehensive security monitoring for internal network"
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service",
@@ -204,6 +206,7 @@ resource "shodan_alert" "targeted_monitoring" {
   description = "Targeted monitoring for specific critical IPs"
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service"
@@ -222,6 +225,7 @@ resource "shodan_alert" "multi_network_slack" {
   description = "Multi-network monitoring with Slack alerts"
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service"

@@ -52,6 +52,7 @@ resource "shodan_domain" "comprehensive_monitoring" {
   enabled     = true
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "vulnerable_unverified",
@@ -82,6 +83,7 @@ resource "shodan_domain" "multiple_domains" {
   description = "Monitor enterprise domain for security threats"
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service",
@@ -99,6 +101,7 @@ resource "shodan_domain" "slack_monitoring" {
   enabled     = true
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service",

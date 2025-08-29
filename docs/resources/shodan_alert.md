@@ -36,6 +36,7 @@ resource "shodan_alert" "advanced_monitoring" {
   description = "Comprehensive security monitoring for multiple networks"
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service",
@@ -74,6 +75,29 @@ resource "shodan_alert" "critical_infrastructure" {
 }
 ```
 
+### AI Services Monitoring
+
+```hcl
+resource "shodan_alert" "ai_services_monitoring" {
+  name        = "ai-services-monitoring"
+  network     = ["192.168.1.0/24", "10.0.0.0/8"]
+  description = "Monitor for AI-related services and potential security risks"
+  
+  triggers = [
+    "ai",
+    "malware",
+    "vulnerable",
+    "new_service",
+    "uncommon"
+  ]
+  
+  notifiers = ["default"]
+  slack_notifications = ["ai-security-team"]
+  
+  tags = ["ai", "security", "monitoring"]
+}
+```
+
 ## Argument Reference
 
 The following arguments are supported:
@@ -93,6 +117,7 @@ The following arguments are supported:
 *   `enabled` (Optional, Bool) - Whether the alert is enabled and actively monitoring. Defaults to `true`.
 
 *   `triggers` (Optional, List of String) - List of trigger rules to enable. Available triggers include:
+    - `ai` - AI-related services detected
     - `malware` - Malware detected
     - `vulnerable` - Vulnerable service detected
     - `new_service` - New service detected
@@ -103,7 +128,7 @@ The following arguments are supported:
     - `end_of_life` - End of life software
     - `internet_scanner` - Internet scanner detected
     - `uncommon` - Uncommon service
-    - `uncommon_plus` - Extended uncommon detection
+    - `uncommon_plus` - Extended uncommon service detection
     - `vulnerable_unverified` - Unverified vulnerable service
 
 *   `notifiers` (Optional, List of String) - List of notifier IDs to associate. Use `["default"]` for email notifications.
@@ -132,6 +157,7 @@ The following trigger rules are available for Shodan alerts:
 
 | Trigger | Description |
 |---------|-------------|
+| `ai` | AI-related services detected |
 | `end_of_life` | End of life software detected |
 | `industrial_control_system` | Industrial control system detected |
 | `internet_scanner` | Internet scanner detected |
@@ -187,6 +213,7 @@ resource "shodan_alert" "example" {
 
 - **Start with essential triggers**: `malware`, `vulnerable`, `new_service`
 - **Add specialized triggers** based on your infrastructure
+- **Use `ai`** for environments with AI/ML services or when monitoring for AI-related security risks
 - **Use `industrial_control_system`** for OT environments
 - **Enable `ssl_expired`** for web-facing services
 
@@ -226,6 +253,7 @@ resource "shodan_alert" "business_infra" {
   description = "Monitor business infrastructure for threats"
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "industrial_control_system",

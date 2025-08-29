@@ -39,6 +39,7 @@ resource "shodan_alert" "security_monitoring" {
   description = "Comprehensive security monitoring for internal network"
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service",
@@ -57,6 +58,7 @@ resource "shodan_domain" "domain_monitoring" {
   description = "Monitor company domain for security threats"
   
   triggers = [
+    "ai",
     "malware",
     "vulnerable",
     "new_service",
