@@ -183,6 +183,7 @@ func (r *ShodanDomainResource) Read(ctx context.Context, req resource.ReadReques
 	// Recovery path: state may carry an empty ID due to a pre-0.1.16 Update bug
 	// that wiped the computed ID when only triggers/notifiers changed. Look up
 	// the alert by its expected name (`__domain: <domain>` or `__domain: <domain> (<name>)`).
+	// ListAlerts is client-side cached, so 13 concurrent recoveries share one API call.
 	if data.ID.IsNull() || data.ID.ValueString() == "" {
 		expectedName := fmt.Sprintf("__domain: %s", data.Domain.ValueString())
 		if !data.Name.IsNull() && data.Name.ValueString() != "" {
@@ -198,22 +199,21 @@ func (r *ShodanDomainResource) Read(ctx context.Context, req resource.ReadReques
 			return
 		}
 
-		recovered := false
 		for _, alert := range alerts {
 			if alert.Name == expectedName {
 				data.ID = types.StringValue(alert.ID)
 				data.CreatedAt = types.StringValue(alert.Created)
-				recovered = true
 				tflog.Info(ctx, fmt.Sprintf("Recovered ID %s for domain %s", alert.ID, data.Domain.ValueString()))
-				break
+				// ListAlerts already returned the full alert record — skip the
+				// redundant GetAlert and save state directly.
+				resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
+				return
 			}
 		}
 
-		if !recovered {
-			tflog.Warn(ctx, fmt.Sprintf("Domain alert for %s not found in Shodan, removing from state", data.Domain.ValueString()))
-			resp.State.RemoveResource(ctx)
-			return
-		}
+		tflog.Warn(ctx, fmt.Sprintf("Domain alert for %s not found in Shodan, removing from state", data.Domain.ValueString()))
+		resp.State.RemoveResource(ctx)
+		return
 	}
 
 	alert, err := r.client.GetAlert(data.ID.ValueString())

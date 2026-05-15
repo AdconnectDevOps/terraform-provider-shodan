@@ -4,7 +4,15 @@ All notable changes to this provider are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this provider adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.16] — Unreleased
+## [0.1.17] — Unreleased
+
+### Fixed
+
+- **`shodan_domain` Read could exhaust the Shodan API rate limit during large-scale state recovery.** When many domain alerts had empty IDs (pre-0.1.16 state corruption), each Read issued a `ListAlerts` call **plus** a redundant `GetAlert` call. For a workspace with N domains needing recovery, that doubled the API load to 2×N calls and reliably tripped Shodan's burst protection (`HTTP 429: Please throttle your requests to 1 request per second`). Read now skips the trailing `GetAlert` once recovery succeeds — the `ListAlerts` response already carries everything Read needs.
+- **`ListAlerts` is now cached on the client** for 60 seconds. Concurrent or back-to-back Read calls during a single plan share the same response instead of repeating the API call. Drops recovery-time API load from N calls to 1.
+- **HTTP client now retries 429 with exponential backoff** (up to 3 attempts, intervals `request_interval × 1s, 2s, 4s`). Survives Shodan's burst-limit responses without surfacing them as plan failures. Request bodies are buffered so PUT/POST/DELETE retries replay correctly.
+
+## [0.1.16] — 2026-05-15
 
 ### Fixed
 

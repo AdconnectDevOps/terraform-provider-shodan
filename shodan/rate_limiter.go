@@ -1,10 +1,18 @@
 package shodan
 
 import (
+	"bytes"
+	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
 )
+
+// rateLimit429MaxRetries is the maximum number of times Do will retry on a
+// 429 response. With exponential backoff (interval × 2^attempt) the total
+// wait for an interval of 1s is roughly 1+2+4 = 7s before giving up.
+const rateLimit429MaxRetries = 3
 
 // Package shodan provides a rate-limited HTTP client for the Shodan API.
 // The rate limiter ensures compliance with Shodan's API rate limits by
@@ -47,29 +55,66 @@ func NewRateLimitedHTTPClient(client *http.Client, requestIntervalSeconds int64)
 	}
 }
 
-// Do executes an HTTP request with rate limiting
+// Do executes an HTTP request with rate limiting and 429 retry-with-backoff.
+// Shodan's rate limit advertises 1 request per second, but their server-side
+// bucket can flag bursts even when the wall-clock spacing is correct. On 429
+// we sleep for (interval × 2^attempt) and retry, up to rateLimit429MaxRetries.
 func (r *RateLimitedHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	// Calculate minimum time between requests based on interval
 	minInterval := time.Duration(r.requestInterval) * time.Second
 
-	// If we've made a request before, ensure proper spacing
-	if !r.lastRequest.IsZero() {
-		timeSinceLast := time.Since(r.lastRequest)
-		if timeSinceLast < minInterval {
-			// Wait for the remaining time to maintain interval
-			waitTime := minInterval - timeSinceLast
-			time.Sleep(waitTime)
+	// Buffer the body so we can replay on retry. GET requests have no body, but
+	// PUT/POST/DELETE may — and io.Reader-style bodies are single-shot.
+	var bodyBytes []byte
+	if req.Body != nil {
+		var err error
+		bodyBytes, err = io.ReadAll(req.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to buffer request body for retry: %w", err)
 		}
+		req.Body.Close()
 	}
 
-	// Update last request time
-	r.lastRequest = time.Now()
+	var resp *http.Response
+	var lastErr error
 
-	// Execute the request using the underlying client
-	return r.client.Do(req)
+	for attempt := 0; attempt <= rateLimit429MaxRetries; attempt++ {
+		if !r.lastRequest.IsZero() {
+			timeSinceLast := time.Since(r.lastRequest)
+			if timeSinceLast < minInterval {
+				time.Sleep(minInterval - timeSinceLast)
+			}
+		}
+
+		if bodyBytes != nil {
+			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
+
+		r.lastRequest = time.Now()
+		resp, lastErr = r.client.Do(req)
+		if lastErr != nil {
+			return nil, lastErr
+		}
+
+		if resp.StatusCode != http.StatusTooManyRequests {
+			return resp, nil
+		}
+
+		// 429: drain the body so we can retry the same connection, then backoff.
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+
+		if attempt == rateLimit429MaxRetries {
+			return resp, nil // last attempt — return the 429 to the caller for surfacing
+		}
+
+		backoff := minInterval * time.Duration(1<<attempt)
+		time.Sleep(backoff)
+	}
+
+	return resp, nil
 }
 
 // Close cleans up the rate limiter resources.

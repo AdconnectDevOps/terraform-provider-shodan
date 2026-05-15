@@ -7,13 +7,25 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync"
+	"time"
 )
+
+// alertsCacheTTL controls how long ListAlerts results are reused across calls
+// within a single provider run. Tuned to amortize burst load (many resources
+// running Read in parallel during refresh) without masking real out-of-band
+// changes.
+const alertsCacheTTL = 60 * time.Second
 
 // ShodanClient represents a client for interacting with the Shodan API
 type ShodanClient struct {
 	ApiKey     string
 	BaseURL    string
 	HTTPClient *RateLimitedHTTPClient
+
+	alertsCache   []AlertResponse
+	alertsCacheAt time.Time
+	cacheMu       sync.Mutex
 }
 
 // NewShodanClient creates a new Shodan API client
@@ -164,8 +176,18 @@ func (c *ShodanClient) RemoveNotifier(alertID, notifierID string) error {
 	return fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 }
 
-// ListAlerts retrieves all alerts for the authenticated account
+// ListAlerts retrieves all alerts for the authenticated account. Results are
+// cached on the client for alertsCacheTTL — multiple Read calls in one plan
+// share the same response and avoid hammering the Shodan API.
 func (c *ShodanClient) ListAlerts() ([]AlertResponse, error) {
+	c.cacheMu.Lock()
+	if c.alertsCache != nil && time.Since(c.alertsCacheAt) < alertsCacheTTL {
+		cached := c.alertsCache
+		c.cacheMu.Unlock()
+		return cached, nil
+	}
+	c.cacheMu.Unlock()
+
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/shodan/alert/info?key=%s", c.BaseURL, c.ApiKey), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -191,6 +213,11 @@ func (c *ShodanClient) ListAlerts() ([]AlertResponse, error) {
 	if err := json.Unmarshal(body, &alerts); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
+
+	c.cacheMu.Lock()
+	c.alertsCache = alerts
+	c.alertsCacheAt = time.Now()
+	c.cacheMu.Unlock()
 
 	return alerts, nil
 }
