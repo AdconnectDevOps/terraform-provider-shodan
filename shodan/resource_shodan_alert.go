@@ -3,11 +3,14 @@ package shodan
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -55,6 +58,9 @@ func (r *ShodanAlertResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"id": schema.StringAttribute{
 				Description: "The unique identifier for the Shodan alert.",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Description: "The name of the Shodan alert.",
@@ -99,6 +105,9 @@ func (r *ShodanAlertResource) Schema(_ context.Context, _ resource.SchemaRequest
 			"created_at": schema.StringAttribute{
 				Description: "The timestamp when the alert was created.",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -195,9 +204,20 @@ func (r *ShodanAlertResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 
+	if state.ID.IsNull() || state.ID.ValueString() == "" {
+		tflog.Warn(ctx, "Alert has empty ID in state, removing")
+		resp.State.RemoveResource(ctx)
+		return
+	}
+
 	// Get the alert from Shodan API
 	alert, err := r.client.GetAlert(state.ID.ValueString())
 	if err != nil {
+		if strings.Contains(err.Error(), "status 404") {
+			tflog.Warn(ctx, fmt.Sprintf("Alert %s returned 404, removing from state", state.ID.ValueString()))
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError(
 			"Error reading Shodan alert",
 			fmt.Sprintf("Could not read alert %s, unexpected error: %s", state.ID.ValueString(), err.Error()),
@@ -277,49 +297,29 @@ func (r *ShodanAlertResource) Update(ctx context.Context, req resource.UpdateReq
 		}
 	}
 
-	// Update triggers if changed
+	// Reconcile triggers / notifiers / slack notifications via add+remove diff.
 	if !plan.Triggers.Equal(state.Triggers) {
-		// Remove old triggers and add new ones
-		// Note: Shodan API doesn't support removing triggers, so we'll just add new ones
-		if !plan.Triggers.IsNull() {
-			var triggers []types.String
-			plan.Triggers.ElementsAs(ctx, &triggers, false)
-			for _, trigger := range triggers {
-				if err := r.client.AddTrigger(state.ID.ValueString(), trigger.ValueString()); err != nil {
-					tflog.Warn(ctx, fmt.Sprintf("Failed to add trigger %s: %s", trigger.ValueString(), err.Error()))
-				}
-			}
-		}
+		syncStringList(ctx, state.ID.ValueString(),
+			listToStringSlice(ctx, state.Triggers),
+			listToStringSlice(ctx, plan.Triggers),
+			r.client.AddTrigger, r.client.RemoveTrigger,
+			"trigger", &resp.Diagnostics)
 	}
 
-	// Update notifiers if changed
 	if !plan.Notifiers.Equal(state.Notifiers) {
-		// Remove old notifiers and add new ones
-		// Note: Shodan API doesn't support removing notifiers, so we'll just add new ones
-		if !plan.Notifiers.IsNull() {
-			var notifiers []types.String
-			plan.Notifiers.ElementsAs(ctx, &notifiers, false)
-			for _, notifier := range notifiers {
-				if err := r.client.AddNotifier(state.ID.ValueString(), notifier.ValueString()); err != nil {
-					tflog.Warn(ctx, fmt.Sprintf("Failed to add notifier %s: %s", notifier.ValueString(), err.Error()))
-				}
-			}
-		}
+		syncStringList(ctx, state.ID.ValueString(),
+			listToStringSlice(ctx, state.Notifiers),
+			listToStringSlice(ctx, plan.Notifiers),
+			r.client.AddNotifier, r.client.RemoveNotifier,
+			"notifier", &resp.Diagnostics)
 	}
 
-	// Update Slack notifications if changed
 	if !plan.SlackNotifications.Equal(state.SlackNotifications) {
-		// Remove old Slack notifications and add new ones
-		// Note: Shodan API doesn't support removing notifiers, so we'll just add new ones
-		if !plan.SlackNotifications.IsNull() {
-			var slackChannels []types.String
-			plan.SlackNotifications.ElementsAs(ctx, &slackChannels, false)
-			for _, channel := range slackChannels {
-				if err := r.client.AddSlackNotifier(state.ID.ValueString(), channel.ValueString()); err != nil {
-					tflog.Warn(ctx, fmt.Sprintf("Failed to add Slack notification for channel %s: %s", channel.ValueString(), err.Error()))
-				}
-			}
-		}
+		syncStringList(ctx, state.ID.ValueString(),
+			listToStringSlice(ctx, state.SlackNotifications),
+			listToStringSlice(ctx, plan.SlackNotifications),
+			r.client.AddSlackNotifier, r.client.RemoveNotifier,
+			"slack notifier", &resp.Diagnostics)
 	}
 
 	// After all updates, read the current state from the API to ensure computed fields are set correctly

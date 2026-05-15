@@ -76,13 +76,21 @@ data "shodan_domain" "domain_info" {
 
 ## Authentication
 
-The Shodan provider requires an API key to authenticate with Shodan's services. You can provide the API key via the `api_key` argument in the provider configuration block, or via the `SHODAN_API_KEY` environment variable.
+The Shodan provider requires an API key to authenticate with Shodan's services. You can provide it in either of two ways — the explicit `api_key` argument takes precedence:
 
 ```hcl
+# Option 1: provider config (good for CI variables / Terraform variables)
 provider "shodan" {
-  api_key = "your-shodan-api-key"
+  api_key = var.shodan_api_key
 }
 ```
+
+```bash
+# Option 2: environment variable (good for local development)
+export SHODAN_API_KEY=your-shodan-api-key
+```
+
+If neither is set, the provider fails at configure time with `Missing Shodan API key`.
 
 ## Rate Limiting
 

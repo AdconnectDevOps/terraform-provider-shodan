@@ -70,6 +70,9 @@ func (c *ShodanClient) CreateAlert(name string, filters map[string]interface{}) 
 
 // AddTrigger adds a trigger to an existing alert
 func (c *ShodanClient) AddTrigger(alertID, trigger string) error {
+	if alertID == "" {
+		return fmt.Errorf("alert ID cannot be empty")
+	}
 	req, err := http.NewRequest("PUT", fmt.Sprintf("%s/shodan/alert/%s/trigger/%s?key=%s", c.BaseURL, alertID, trigger, c.ApiKey), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -89,8 +92,35 @@ func (c *ShodanClient) AddTrigger(alertID, trigger string) error {
 	return nil
 }
 
+// RemoveTrigger removes a trigger from an existing alert
+func (c *ShodanClient) RemoveTrigger(alertID, trigger string) error {
+	if alertID == "" {
+		return fmt.Errorf("alert ID cannot be empty")
+	}
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/shodan/alert/%s/trigger/%s?key=%s", c.BaseURL, alertID, trigger, c.ApiKey), nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNotFound {
+		return nil
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	return fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+}
+
 // AddNotifier adds a notifier to an existing alert
 func (c *ShodanClient) AddNotifier(alertID, notifierID string) error {
+	if alertID == "" {
+		return fmt.Errorf("alert ID cannot be empty")
+	}
 	req, err := http.NewRequest("PUT", fmt.Sprintf("%s/shodan/alert/%s/notifier/%s?key=%s", c.BaseURL, alertID, notifierID, c.ApiKey), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -108,6 +138,61 @@ func (c *ShodanClient) AddNotifier(alertID, notifierID string) error {
 	}
 
 	return nil
+}
+
+// RemoveNotifier removes a notifier from an existing alert
+func (c *ShodanClient) RemoveNotifier(alertID, notifierID string) error {
+	if alertID == "" {
+		return fmt.Errorf("alert ID cannot be empty")
+	}
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/shodan/alert/%s/notifier/%s?key=%s", c.BaseURL, alertID, notifierID, c.ApiKey), nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNotFound {
+		return nil
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	return fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+}
+
+// ListAlerts retrieves all alerts for the authenticated account
+func (c *ShodanClient) ListAlerts() ([]AlertResponse, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/shodan/alert/info?key=%s", c.BaseURL, c.ApiKey), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var alerts []AlertResponse
+	if err := json.Unmarshal(body, &alerts); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return alerts, nil
 }
 
 // AddEmailNotifier adds an email notifier to an existing alert
@@ -130,7 +215,9 @@ func (c *ShodanClient) AddSlackNotifier(alertID, notifierID string) error {
 
 // GetAlert retrieves an existing alert by ID
 func (c *ShodanClient) GetAlert(alertID string) (*AlertResponse, error) {
-	// Use the correct endpoint with /info as per Shodan API documentation
+	if alertID == "" {
+		return nil, fmt.Errorf("alert ID cannot be empty")
+	}
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/shodan/alert/%s/info?key=%s", c.BaseURL, alertID, c.ApiKey), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -162,7 +249,9 @@ func (c *ShodanClient) GetAlert(alertID string) (*AlertResponse, error) {
 
 // DeleteAlert deletes an existing alert by ID
 func (c *ShodanClient) DeleteAlert(alertID string) error {
-	// Use the working DELETE endpoint that matches the successful curl command
+	if alertID == "" {
+		return fmt.Errorf("alert ID cannot be empty")
+	}
 	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/shodan/alert/%s?key=%s", c.BaseURL, alertID, c.ApiKey), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)

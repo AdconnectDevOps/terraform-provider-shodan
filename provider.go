@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"os"
 
 	"github.com/AdconnectDevOps/terraform-provider-shodan/shodan"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -41,8 +42,8 @@ func (p *ShodanProvider) Schema(ctx context.Context, req provider.SchemaRequest,
 		Description: "Interact with Shodan API to manage network alerts and monitoring.",
 		Attributes: map[string]schema.Attribute{
 			"api_key": schema.StringAttribute{
-				Description: "Shodan API key for authentication. Can also be set via SHODAN_API_KEY environment variable.",
-				Required:    true,
+				Description: "Shodan API key for authentication. Falls back to SHODAN_API_KEY environment variable when not set.",
+				Optional:    true,
 				Sensitive:   true,
 			},
 			"request_interval": schema.Int64Attribute{
@@ -62,18 +63,25 @@ func (p *ShodanProvider) Configure(ctx context.Context, req provider.ConfigureRe
 		return
 	}
 
-	// Configuration values are now available.
-	// if config.ApiKey.IsNull() { /* ... */ }
+	apiKey := config.ApiKey.ValueString()
+	if apiKey == "" {
+		apiKey = os.Getenv("SHODAN_API_KEY")
+	}
+	if apiKey == "" {
+		resp.Diagnostics.AddError(
+			"Missing Shodan API key",
+			"Provider config has no api_key set and SHODAN_API_KEY environment variable is empty.",
+		)
+		return
+	}
 
-	// Get request interval from config, default to 2 seconds if not specified
 	requestInterval := int64(2)
 	if !config.RequestInterval.IsNull() {
 		requestInterval = config.RequestInterval.ValueInt64()
 	}
 
-	// Example client configuration for data sources and resources
 	client := &shodan.ShodanClient{
-		ApiKey:     config.ApiKey.ValueString(),
+		ApiKey:     apiKey,
 		BaseURL:    "https://api.shodan.io",
 		HTTPClient: shodan.NewRateLimitedHTTPClient(&http.Client{}, requestInterval),
 	}
