@@ -98,8 +98,9 @@ The following arguments are supported:
 * `name` - (Optional) Optional custom name for the alert. If not provided, will use `__domain: {domain}` format.
 * `description` - (Optional) Optional description of the domain monitoring alert.
 * `enabled` - (Optional) Whether the domain monitoring alert is enabled. Defaults to `true`.
-* `triggers` - (Optional) List of trigger rules to enable for domain monitoring.
-* `notifiers` - (Optional) List of notifier IDs to associate with the domain alert.
+* `triggers` - (Optional, Set of String) Set of trigger rules to enable for domain monitoring (order-insensitive).
+* `notifiers` - (Optional, Set of String) Set of notifier IDs to associate with the domain alert (order-insensitive).
+* `slack_notifications` - (Optional, Set of String) Set of Slack notifier IDs to associate with the domain alert (order-insensitive). Find the IDs in your Shodan account under Notifications.
 
 ## Attributes Reference
 
@@ -193,6 +194,7 @@ resource "shodan_domain" "third_party" {
 
 The following trigger rules are available for domain monitoring:
 
+- `ai` - AI-related services detected
 - `malware` - Malware detection
 - `vulnerable` - Vulnerable services
 - `vulnerable_unverified` - Unverified vulnerabilities

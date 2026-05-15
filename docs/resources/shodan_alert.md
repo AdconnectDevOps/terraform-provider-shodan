@@ -116,7 +116,7 @@ The following arguments are supported:
 
 *   `enabled` (Optional, Bool) - Whether the alert is enabled and actively monitoring. Defaults to `true`.
 
-*   `triggers` (Optional, List of String) - List of trigger rules to enable. Available triggers include:
+*   `triggers` (Optional, Set of String) - Set of trigger rules to enable (order-insensitive). Available triggers include:
     - `ai` - AI-related services detected
     - `malware` - Malware detected
     - `vulnerable` - Vulnerable service detected
@@ -131,9 +131,9 @@ The following arguments are supported:
     - `uncommon_plus` - Extended uncommon service detection
     - `vulnerable_unverified` - Unverified vulnerable service
 
-*   `notifiers` (Optional, List of String) - List of notifier IDs to associate. Use `["default"]` for email notifications.
+*   `notifiers` (Optional, Set of String) - Set of notifier IDs to associate (order-insensitive). Use `["default"]` for email notifications.
 
-*   `slack_notifications` (Optional, List of String) - List of Slack notifier IDs to send notifications to.
+*   `slack_notifications` (Optional, Set of String) - Set of Slack notifier IDs to send notifications to (order-insensitive).
 
 ## Attribute Reference
 

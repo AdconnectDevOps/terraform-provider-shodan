@@ -16,9 +16,10 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces
 var (
-	_ resource.Resource                = &ShodanDomainResource{}
-	_ resource.ResourceWithConfigure   = &ShodanDomainResource{}
-	_ resource.ResourceWithImportState = &ShodanDomainResource{}
+	_ resource.Resource                  = &ShodanDomainResource{}
+	_ resource.ResourceWithConfigure     = &ShodanDomainResource{}
+	_ resource.ResourceWithImportState   = &ShodanDomainResource{}
+	_ resource.ResourceWithUpgradeState  = &ShodanDomainResource{}
 )
 
 // ShodanDomainResource is the resource implementation.
@@ -49,6 +50,7 @@ func (r *ShodanDomainResource) Metadata(ctx context.Context, req resource.Metada
 
 func (r *ShodanDomainResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Monitor a domain for security threats using Shodan alerts.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -75,18 +77,18 @@ func (r *ShodanDomainResource) Schema(ctx context.Context, req resource.SchemaRe
 				Optional:    true,
 				Computed:    true,
 			},
-			"triggers": schema.ListAttribute{
-				Description: "List of trigger rules to enable for domain monitoring.",
+			"triggers": schema.SetAttribute{
+				Description: "Set of trigger rules to enable for domain monitoring. Order-insensitive; matches Shodan's unordered API.",
 				ElementType: types.StringType,
 				Optional:    true,
 			},
-			"notifiers": schema.ListAttribute{
-				Description: "List of notifier IDs to associate with the domain alert.",
+			"notifiers": schema.SetAttribute{
+				Description: "Set of notifier IDs to associate with the domain alert.",
 				ElementType: types.StringType,
 				Optional:    true,
 			},
-			"slack_notifications": schema.ListAttribute{
-				Description: "List of Slack notification IDs to associate with the domain alert.",
+			"slack_notifications": schema.SetAttribute{
+				Description: "Set of Slack notification IDs to associate with the domain alert.",
 				ElementType: types.StringType,
 				Optional:    true,
 			},
@@ -348,4 +350,58 @@ func (r *ShodanDomainResource) Delete(ctx context.Context, req resource.DeleteRe
 
 func (r *ShodanDomainResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+}
+
+// UpgradeState migrates v0 state (triggers/notifiers/slack_notifications as
+// ordered lists) to v1 state (same fields as unordered sets). Without this
+// upgrader Terraform errors with a type mismatch on the first plan after the
+// schema change.
+func (r *ShodanDomainResource) UpgradeState(ctx context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		0: {
+			PriorSchema: &schema.Schema{
+				Attributes: map[string]schema.Attribute{
+					"id": schema.StringAttribute{Computed: true},
+					"domain": schema.StringAttribute{Required: true},
+					"name": schema.StringAttribute{Optional: true},
+					"description": schema.StringAttribute{Optional: true},
+					"enabled": schema.BoolAttribute{Optional: true, Computed: true},
+					"triggers": schema.ListAttribute{ElementType: types.StringType, Optional: true},
+					"notifiers": schema.ListAttribute{ElementType: types.StringType, Optional: true},
+					"slack_notifications": schema.ListAttribute{ElementType: types.StringType, Optional: true},
+					"created_at": schema.StringAttribute{Computed: true},
+				},
+			},
+			StateUpgrader: func(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+				type domainV0 struct {
+					ID                 types.String   `tfsdk:"id"`
+					Domain             types.String   `tfsdk:"domain"`
+					Name               types.String   `tfsdk:"name"`
+					Description        types.String   `tfsdk:"description"`
+					Enabled            types.Bool     `tfsdk:"enabled"`
+					Triggers           []types.String `tfsdk:"triggers"`
+					Notifiers          []types.String `tfsdk:"notifiers"`
+					SlackNotifications []types.String `tfsdk:"slack_notifications"`
+					CreatedAt          types.String   `tfsdk:"created_at"`
+				}
+				var prior domainV0
+				resp.Diagnostics.Append(req.State.Get(ctx, &prior)...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+				upgraded := ShodanDomainResourceModel{
+					ID:                 prior.ID,
+					Domain:             prior.Domain,
+					Name:               prior.Name,
+					Description:        prior.Description,
+					Enabled:            prior.Enabled,
+					Triggers:           prior.Triggers,
+					Notifiers:          prior.Notifiers,
+					SlackNotifications: prior.SlackNotifications,
+					CreatedAt:          prior.CreatedAt,
+				}
+				resp.Diagnostics.Append(resp.State.Set(ctx, &upgraded)...)
+			},
+		},
+	}
 }

@@ -43,7 +43,7 @@ resource "shodan_alert" "production_network" {
 # Create another alert for DMZ
 resource "shodan_alert" "dmz_network" {
   name        = "dmz-network-monitoring"
-  network     = "10.0.0.0/24"
+  network     = ["10.0.0.0/24"]
   description = "Monitor DMZ network for external threats"
   enabled     = true
   

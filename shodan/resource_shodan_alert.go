@@ -17,9 +17,10 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces
 var (
-	_ resource.Resource                = &ShodanAlertResource{}
-	_ resource.ResourceWithConfigure   = &ShodanAlertResource{}
-	_ resource.ResourceWithImportState = &ShodanAlertResource{}
+	_ resource.Resource                  = &ShodanAlertResource{}
+	_ resource.ResourceWithConfigure     = &ShodanAlertResource{}
+	_ resource.ResourceWithImportState   = &ShodanAlertResource{}
+	_ resource.ResourceWithUpgradeState  = &ShodanAlertResource{}
 )
 
 // ShodanAlertResource is the resource implementation.
@@ -35,9 +36,9 @@ type ShodanAlertResourceModel struct {
 	Description        types.String `tfsdk:"description"`
 	Tags               types.List   `tfsdk:"tags"`
 	Enabled            types.Bool   `tfsdk:"enabled"`
-	Triggers           types.List   `tfsdk:"triggers"`
-	Notifiers          types.List   `tfsdk:"notifiers"`
-	SlackNotifications types.List   `tfsdk:"slack_notifications"`
+	Triggers           types.Set    `tfsdk:"triggers"`
+	Notifiers          types.Set    `tfsdk:"notifiers"`
+	SlackNotifications types.Set    `tfsdk:"slack_notifications"`
 	CreatedAt          types.String `tfsdk:"created_at"`
 }
 
@@ -53,6 +54,7 @@ func (r *ShodanAlertResource) Metadata(_ context.Context, req resource.MetadataR
 // Schema defines the schema for the resource.
 func (r *ShodanAlertResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Manages a Shodan network alert for monitoring specific IP ranges.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -85,20 +87,20 @@ func (r *ShodanAlertResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Optional:    true,
 				Computed:    true,
 			},
-			"triggers": schema.ListAttribute{
-				Description: "List of trigger rules to enable for the alert.",
+			"triggers": schema.SetAttribute{
+				Description: "Set of trigger rules to enable for the alert. Order-insensitive; matches Shodan's unordered API.",
 				ElementType: types.StringType,
 				Optional:    true,
 				Computed:    true,
 			},
-			"notifiers": schema.ListAttribute{
-				Description: "List of notifier IDs to associate with the alert.",
+			"notifiers": schema.SetAttribute{
+				Description: "Set of notifier IDs to associate with the alert.",
 				ElementType: types.StringType,
 				Optional:    true,
 				Computed:    true,
 			},
-			"slack_notifications": schema.ListAttribute{
-				Description: "List of Slack notifier IDs to associate with the alert. Use the notifier ID from your Shodan account settings.",
+			"slack_notifications": schema.SetAttribute{
+				Description: "Set of Slack notifier IDs to associate with the alert. Use the notifier ID from your Shodan account settings.",
 				ElementType: types.StringType,
 				Optional:    true,
 			},
@@ -256,9 +258,9 @@ func (r *ShodanAlertResource) Read(ctx context.Context, req resource.ReadRequest
 		for name := range alert.Triggers {
 			triggerKeys = append(triggerKeys, types.StringValue(name))
 		}
-		state.Triggers = types.ListValueMust(types.StringType, triggerKeys)
+		state.Triggers = types.SetValueMust(types.StringType, triggerKeys)
 	} else {
-		state.Triggers = types.ListNull(types.StringType)
+		state.Triggers = types.SetNull(types.StringType)
 	}
 
 	diags = resp.State.Set(ctx, state)
@@ -313,24 +315,24 @@ func (r *ShodanAlertResource) Update(ctx context.Context, req resource.UpdateReq
 	// Reconcile triggers / notifiers / slack notifications via add+remove diff.
 	if !plan.Triggers.Equal(state.Triggers) {
 		syncStringList(ctx, state.ID.ValueString(),
-			listToStringSlice(ctx, state.Triggers),
-			listToStringSlice(ctx, plan.Triggers),
+			setToStringSlice(ctx, state.Triggers),
+			setToStringSlice(ctx, plan.Triggers),
 			r.client.AddTrigger, r.client.RemoveTrigger,
 			"trigger", &resp.Diagnostics)
 	}
 
 	if !plan.Notifiers.Equal(state.Notifiers) {
 		syncStringList(ctx, state.ID.ValueString(),
-			listToStringSlice(ctx, state.Notifiers),
-			listToStringSlice(ctx, plan.Notifiers),
+			setToStringSlice(ctx, state.Notifiers),
+			setToStringSlice(ctx, plan.Notifiers),
 			r.client.AddNotifier, r.client.RemoveNotifier,
 			"notifier", &resp.Diagnostics)
 	}
 
 	if !plan.SlackNotifications.Equal(state.SlackNotifications) {
 		syncStringList(ctx, state.ID.ValueString(),
-			listToStringSlice(ctx, state.SlackNotifications),
-			listToStringSlice(ctx, plan.SlackNotifications),
+			setToStringSlice(ctx, state.SlackNotifications),
+			setToStringSlice(ctx, plan.SlackNotifications),
 			r.client.AddSlackNotifier, r.client.RemoveNotifier,
 			"slack notifier", &resp.Diagnostics)
 	}
@@ -397,4 +399,70 @@ func (r *ShodanAlertResource) Delete(ctx context.Context, req resource.DeleteReq
 func (r *ShodanAlertResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Import by alert ID
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+}
+
+// UpgradeState migrates v0 state (triggers/notifiers/slack_notifications as
+// ordered lists) to v1 state (same fields as unordered sets). Without this
+// upgrader Terraform errors with a type mismatch on the first plan after the
+// schema change.
+func (r *ShodanAlertResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		0: {
+			PriorSchema: &schema.Schema{
+				Attributes: map[string]schema.Attribute{
+					"id":                  schema.StringAttribute{Computed: true},
+					"name":                schema.StringAttribute{Required: true},
+					"network":             schema.ListAttribute{ElementType: types.StringType, Required: true},
+					"description":         schema.StringAttribute{Optional: true},
+					"tags":                schema.ListAttribute{ElementType: types.StringType, Optional: true},
+					"enabled":             schema.BoolAttribute{Optional: true, Computed: true},
+					"triggers":            schema.ListAttribute{ElementType: types.StringType, Optional: true, Computed: true},
+					"notifiers":           schema.ListAttribute{ElementType: types.StringType, Optional: true, Computed: true},
+					"slack_notifications": schema.ListAttribute{ElementType: types.StringType, Optional: true},
+					"created_at":          schema.StringAttribute{Computed: true},
+				},
+			},
+			StateUpgrader: func(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+				type alertV0 struct {
+					ID                 types.String `tfsdk:"id"`
+					Name               types.String `tfsdk:"name"`
+					Network            types.List   `tfsdk:"network"`
+					Description        types.String `tfsdk:"description"`
+					Tags               types.List   `tfsdk:"tags"`
+					Enabled            types.Bool   `tfsdk:"enabled"`
+					Triggers           types.List   `tfsdk:"triggers"`
+					Notifiers          types.List   `tfsdk:"notifiers"`
+					SlackNotifications types.List   `tfsdk:"slack_notifications"`
+					CreatedAt          types.String `tfsdk:"created_at"`
+				}
+				var prior alertV0
+				resp.Diagnostics.Append(req.State.Get(ctx, &prior)...)
+				if resp.Diagnostics.HasError() {
+					return
+				}
+				listToSet := func(l types.List) types.Set {
+					if l.IsNull() {
+						return types.SetNull(types.StringType)
+					}
+					if l.IsUnknown() {
+						return types.SetUnknown(types.StringType)
+					}
+					return types.SetValueMust(types.StringType, l.Elements())
+				}
+				upgraded := ShodanAlertResourceModel{
+					ID:                 prior.ID,
+					Name:               prior.Name,
+					Network:            prior.Network,
+					Description:        prior.Description,
+					Tags:               prior.Tags,
+					Enabled:            prior.Enabled,
+					Triggers:           listToSet(prior.Triggers),
+					Notifiers:          listToSet(prior.Notifiers),
+					SlackNotifications: listToSet(prior.SlackNotifications),
+					CreatedAt:          prior.CreatedAt,
+				}
+				resp.Diagnostics.Append(resp.State.Set(ctx, &upgraded)...)
+			},
+		},
+	}
 }

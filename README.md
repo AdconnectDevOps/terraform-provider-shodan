@@ -8,10 +8,11 @@
 
 A Terraform provider for managing Shodan network alerts and domain monitoring configurations. This provider allows you to programmatically create, manage, and monitor network security alerts and domains using Shodan's powerful threat detection capabilities.
 
-**🚀 New Features:**
-- **Domain Monitoring**: Monitor domains for security threats with automatic IP resolution
-- **Configurable Request Intervals**: Built-in rate limiting to ensure compliance with Shodan's API limits
-- **Multiple IP Support**: Monitor multiple networks with single alerts
+**Features:**
+- **Network Alerts**: Monitor one or many CIDR ranges per alert via `shodan_alert`
+- **Domain Monitoring**: Monitor domains for security threats with automatic IP resolution via `shodan_domain`
+- **Configurable Request Intervals**: Built-in rate limiting to comply with Shodan's API quotas
+- **Order-Insensitive Triggers**: `triggers`, `notifiers`, and `slack_notifications` are sets — plans are stable regardless of element order
 
 All API requests are automatically spaced apart to prevent hitting rate limits and ensure reliable operation. The request interval is **configurable** and defaults to **2 seconds between requests**.
 
@@ -250,9 +251,9 @@ resource "shodan_alert" "multi_network_slack" {
 | `description` | `string` | No | A description of the alert |
 | `tags` | `list(string)` | No | Tags to associate with the alert |
 | `enabled` | `bool` | No | Whether the alert is enabled (default: true) |
-| `triggers` | `list(string)` | No | List of trigger rules to enable |
-| `notifiers` | `list(string)` | No | List of notifier IDs to associate |
-| `slack_notifications` | `list(string)` | No | List of Slack channels IDs to send notifications to |
+| `triggers` | `set(string)` | No | Set of trigger rules to enable (order-insensitive) |
+| `notifiers` | `set(string)` | No | Set of notifier IDs to associate (order-insensitive) |
+| `slack_notifications` | `set(string)` | No | Set of Slack notifier IDs to send notifications to (order-insensitive) |
 
 #### Attributes
 
@@ -271,8 +272,9 @@ resource "shodan_alert" "multi_network_slack" {
 | `name` | `string` | No | Optional custom name for the alert. If not provided, will use '__domain: {domain}' format |
 | `description` | `string` | No | Optional description of the domain monitoring alert |
 | `enabled` | `bool` | No | Whether the domain monitoring alert is enabled (default: true) |
-| `triggers` | `list(string)` | No | List of trigger rules to enable for domain monitoring |
-| `notifiers` | `list(string)` | No | List of notifier IDs to associate with the domain alert |
+| `triggers` | `set(string)` | No | Set of trigger rules to enable for domain monitoring (order-insensitive) |
+| `notifiers` | `set(string)` | No | Set of notifier IDs to associate with the domain alert (order-insensitive) |
+| `slack_notifications` | `set(string)` | No | Set of Slack notifier IDs to associate with the domain alert (order-insensitive) |
 
 #### Attributes
 
@@ -305,6 +307,7 @@ resource "shodan_alert" "multi_network_slack" {
 
 The following trigger rules are available for Shodan alerts:
 
+- `ai` - AI-related services detected
 - `end_of_life` - End of life software detected
 - `industrial_control_system` - Industrial control system detected
 - `internet_scanner` - Internet scanner detected

@@ -4,7 +4,17 @@ All notable changes to this provider are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this provider adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.18] — Unreleased
+## [0.1.19] — 2026-05-15
+
+### Fixed
+
+- **`triggers`, `notifiers`, and `slack_notifications` are now order-insensitive on both `shodan_alert` and `shodan_domain`.** Previously these were declared as `ListAttribute` (ordered). The Shodan API stores them as an unordered map and returns them via `map[string]interface{}`; the 0.1.18 Read path that finally reflects the API state iterates that map, and Go map iteration is randomized — so every refresh produced a different element order and `terraform plan` showed every resource as `update in-place` even when the trigger/notifier set had not changed. The schema is now `SetAttribute` for all three attributes on both resources, which compares by element membership and ignores order. Plans stabilise to `No changes` once the configured set matches Shodan's actual set.
+
+### Changed
+
+- **Resource schema version bumped from 0 to 1** for `shodan_alert` and `shodan_domain`. A `StateUpgrader` is registered for each resource: it reads the prior v0 state (list-shaped) and re-encodes the three affected attributes as sets without touching values. The upgrade runs automatically on the first plan after this provider version is installed — no `terraform state rm`/`import` required.
+
+## [0.1.18] — 2026-05-15
 
 ### Fixed
 
@@ -13,6 +23,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Upgrade notes for users who previously applied with 0.1.15 or earlier
 
 If your Shodan UI still shows `uncommon`, `uncommon_plus`, or `ai` on asset groups where your TF config no longer lists them, your state was silently desynced by 0.1.15 (it ran `AddTrigger` for every planned trigger without removing the ones you dropped). Bump to 0.1.18, run `terraform plan` — the in-place updates now show the real diff. `terraform apply` will then issue `DELETE /shodan/alert/{id}/trigger/{trigger}` for the stale entries and bring Shodan in line with your config.
+
+### Known follow-up
+
+0.1.18 made the underlying schema bug visible: because `triggers` is a `ListAttribute` and the Shodan API returns triggers as an unordered `map[string]any`, every refresh produced a different element order and `terraform plan` showed all resources as `update in-place` even when no triggers had actually changed. Fixed in 0.1.19 by switching the attribute to `SetAttribute`.
 
 ## [0.1.17] — 2026-05-15
 

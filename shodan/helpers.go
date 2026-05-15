@@ -71,3 +71,14 @@ func listToStringSlice(ctx context.Context, list types.List) []types.String {
 	list.ElementsAs(ctx, &out, false)
 	return out
 }
+
+// setToStringSlice extracts a []types.String from a types.Set value, returning
+// nil if the set is null or unknown.
+func setToStringSlice(ctx context.Context, set types.Set) []types.String {
+	if set.IsNull() || set.IsUnknown() {
+		return nil
+	}
+	var out []types.String
+	set.ElementsAs(ctx, &out, false)
+	return out
+}

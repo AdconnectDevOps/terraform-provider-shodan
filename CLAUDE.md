@@ -162,7 +162,7 @@ make dev                          # prints TF_REATTACH_PROVIDERS line — copy t
 
 - **API key in URL query string.** Shodan accepts the key only as `?key=<value>`, not as a header. Avoid logging full URLs (they include the key); use the structured error format above so the caller controls what gets surfaced.
 - **`AlertResponse.HasTriggers` is approximated as `Enabled`** in `Read`. The Shodan API has no explicit per-alert enabled/disabled field — an alert is functionally inert when it has no triggers. If a real "paused" semantic is ever added, replace this approximation.
-- **`Triggers` in `AlertResponse` is `map[string]interface{}`.** `Read` does not currently extract keys to repopulate the state list. Drift from out-of-band trigger changes is not detected.
+- **`Triggers` in `AlertResponse` is `map[string]interface{}`.** Read extracts keys via `for name := range alert.Triggers` (Go map iteration is randomized) and stores them in a `SetAttribute` so plan diffs are order-insensitive. Drift from out-of-band trigger changes is detected correctly; the order changes per refresh but Terraform set semantics ignore it. Do **not** revert to `ListAttribute` — it produces eternal `update in-place` churn (see CHANGELOG 0.1.19).
 - **Rate limiter is single-process.** Parallel `terraform plan` invocations against the same Shodan account can still trip rate limits — the limiter only spaces requests within one provider process.
 
 ## Style
