@@ -54,6 +54,14 @@ Before tagging:
 2. `make vet && make build` locally — catch the obvious things.
 3. Ensure `go.sum` is current (`go mod tidy`).
 
+After pushing the tag:
+- Watch goreleaser job: `gh run watch <run-id> --exit-status` (find id via `gh run list --repo AdconnectDevOps/terraform-provider-shodan --limit 3`). Typical runtime ~1m45s.
+- Verify Registry pickup (within ~10–15 min of release success):
+  ```bash
+  curl -s https://registry.terraform.io/v1/providers/AdconnectDevOps/shodan/versions \
+    | python3 -c "import json,sys; print(sorted([v['version'] for v in json.load(sys.stdin)['versions']], key=lambda x:[int(p) for p in x.split('.')])[-3:])"
+  ```
+
 ## Provider Framework conventions used here
 
 ### Resource lifecycle methods
@@ -114,6 +122,20 @@ Use `syncStringList` in `helpers.go`. It:
 
 Errors are emitted as `Diagnostics.AddWarning` (not hard errors) — Shodan can return transient 4xx, and a partial reconcile is preferable to aborting the apply. The next plan/apply will retry.
 
+### Collections backed by unordered API → `SetAttribute`
+
+Shodan returns `triggers` / `notifiers` / `slack_notifications` as `map[string]interface{}`. `Read` iterates the map (Go map iteration is randomized) → element order in state varies per refresh. If schema is `ListAttribute`, Terraform's order-sensitive list comparison flags every refresh as a diff and `terraform plan` shows eternal `update in-place` churn on unchanged data. Use `schema.SetAttribute` for any collection whose canonical source is an unordered API. Reverting these three to `ListAttribute` = regressing 0.1.19 (see CHANGELOG).
+
+### Schema type changes require version bump + `UpgradeState`
+
+Changing an attribute's TYPE on an existing schema (not just adding/removing attrs) requires all three:
+
+1. Bump `Schema.Version` to `N+1` in `Schema()`.
+2. Add `_ resource.ResourceWithUpgradeState = &XResource{}` interface assertion.
+3. Implement `UpgradeState(ctx) map[int64]resource.StateUpgrader` returning a `PriorSchema` (FULL prior schema, all attrs) + a `StateUpgrader` func that reads via a v0 model struct and re-encodes into the current model.
+
+Without all three, Terraform errors with type mismatch on first refresh after the upgrade lands. Reference: `resource_shodan_{alert,domain}.go` `UpgradeState` methods (added in 0.1.19 for `List`→`Set` migration).
+
 ### Read self-healing for state corruption
 
 For domain alerts, `Read` looks up the alert by its canonical name (`__domain: <domain>` or `__domain: <domain> (<name>)`) when the state ID is empty. This auto-heals state corrupted by older versions of the provider. The same pattern can be applied to other resources if a stable lookup key exists.
@@ -142,6 +164,15 @@ Every method on `ShodanClient` that takes an `alertID`:
 1. Add the method to `shodan/client.go` next to related ones. Include the empty-ID guard if applicable.
 2. If it can be used to reconcile a collection (add/remove pair), expose both halves so callers can use `syncStringList`.
 3. If it returns a new struct shape, declare the type next to `AlertResponse` / `DomainInfo`.
+
+## Doc surface area when changing schemas
+
+A resource schema change touches more than the `.go` file. Sync all of:
+
+- `README.md` — argument table (type column) + "Available Trigger Rules" list if relevant.
+- `docs/resources/<resource>.md` — Argument Reference (Required/Optional + type label like `Set of String` / `List of String`) + Available Triggers list. This is the canonical published Registry doc — drift here is user-visible.
+- `examples/*.tf` — literal HCL types must match the new schema (e.g. scalar `network = "10.0.0.0/24"` is invalid when schema is `list(string)`; wrap in `[]`).
+- `CLAUDE.md` "Known gotchas" — refresh the entry if a documented gotcha changed shape.
 
 ## Testing locally against a real Terraform configuration
 
