@@ -203,6 +203,15 @@ func (r *ShodanDomainResource) Read(ctx context.Context, req resource.ReadReques
 			if alert.Name == expectedName {
 				data.ID = types.StringValue(alert.ID)
 				data.CreatedAt = types.StringValue(alert.Created)
+				if alert.Triggers != nil {
+					triggerKeys := make([]types.String, 0, len(alert.Triggers))
+					for name := range alert.Triggers {
+						triggerKeys = append(triggerKeys, types.StringValue(name))
+					}
+					data.Triggers = triggerKeys
+				} else {
+					data.Triggers = nil
+				}
 				tflog.Info(ctx, fmt.Sprintf("Recovered ID %s for domain %s", alert.ID, data.Domain.ValueString()))
 				// ListAlerts already returned the full alert record — skip the
 				// redundant GetAlert and save state directly.
@@ -231,6 +240,19 @@ func (r *ShodanDomainResource) Read(ctx context.Context, req resource.ReadReques
 	}
 
 	data.CreatedAt = types.StringValue(alert.Created)
+
+	// Reflect the API's current triggers in state. Without this, a previous
+	// apply that only ran AddTrigger leaves state with the planned-but-not-
+	// fully-applied trigger set, hiding drift on subsequent plans.
+	if alert.Triggers != nil {
+		triggerKeys := make([]types.String, 0, len(alert.Triggers))
+		for name := range alert.Triggers {
+			triggerKeys = append(triggerKeys, types.StringValue(name))
+		}
+		data.Triggers = triggerKeys
+	} else {
+		data.Triggers = nil
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }

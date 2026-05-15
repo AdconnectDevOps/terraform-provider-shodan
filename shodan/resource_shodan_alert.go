@@ -247,7 +247,20 @@ func (r *ShodanAlertResource) Read(ctx context.Context, req resource.ReadRequest
 		}
 	}
 
-	// Set state
+	// Reflect the API's current triggers in state. Without this, a previous
+	// apply that only ran AddTrigger (legacy SDK behaviour) leaves state with
+	// the planned-but-not-fully-applied trigger set, hiding drift on
+	// subsequent plans.
+	if alert.Triggers != nil {
+		triggerKeys := make([]attr.Value, 0, len(alert.Triggers))
+		for name := range alert.Triggers {
+			triggerKeys = append(triggerKeys, types.StringValue(name))
+		}
+		state.Triggers = types.ListValueMust(types.StringType, triggerKeys)
+	} else {
+		state.Triggers = types.ListNull(types.StringType)
+	}
+
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
 }

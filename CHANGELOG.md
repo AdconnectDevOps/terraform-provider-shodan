@@ -4,7 +4,17 @@ All notable changes to this provider are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this provider adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.17] — Unreleased
+## [0.1.18] — Unreleased
+
+### Fixed
+
+- **`shodan_alert.Read` and `shodan_domain.Read` now repopulate `triggers` from the API response.** Previously Read kept whatever was last written to state, which hid drift when a legacy apply (or any code path that called `AddTrigger` without `RemoveTrigger`) wrote planned-but-not-fully-applied trigger sets to state. After this fix Terraform sees the actual trigger set Shodan has and `terraform plan` produces the correct diff. The same pattern is applied to the `ListAlerts`-based ID recovery branch in `shodan_domain.Read`.
+
+### Upgrade notes for users who previously applied with 0.1.15 or earlier
+
+If your Shodan UI still shows `uncommon`, `uncommon_plus`, or `ai` on asset groups where your TF config no longer lists them, your state was silently desynced by 0.1.15 (it ran `AddTrigger` for every planned trigger without removing the ones you dropped). Bump to 0.1.18, run `terraform plan` — the in-place updates now show the real diff. `terraform apply` will then issue `DELETE /shodan/alert/{id}/trigger/{trigger}` for the stale entries and bring Shodan in line with your config.
+
+## [0.1.17] — 2026-05-15
 
 ### Fixed
 
