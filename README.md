@@ -254,6 +254,7 @@ resource "shodan_alert" "multi_network_slack" {
 | `triggers` | `set(string)` | No | Set of trigger rules to enable (order-insensitive) |
 | `notifiers` | `set(string)` | No | Set of notifier IDs to associate (order-insensitive) |
 | `slack_notifications` | `set(string)` | No | Set of Slack notifier IDs to send notifications to (order-insensitive) |
+| `whitelist` | `map(set(string))` | No | Per-trigger ignore list (`ip:port`) mirroring the Shodan UI "Add to Whitelist" button |
 
 #### Attributes
 

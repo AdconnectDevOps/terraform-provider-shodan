@@ -16,10 +16,10 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces
 var (
-	_ resource.Resource                  = &ShodanDomainResource{}
-	_ resource.ResourceWithConfigure     = &ShodanDomainResource{}
-	_ resource.ResourceWithImportState   = &ShodanDomainResource{}
-	_ resource.ResourceWithUpgradeState  = &ShodanDomainResource{}
+	_ resource.Resource                 = &ShodanDomainResource{}
+	_ resource.ResourceWithConfigure    = &ShodanDomainResource{}
+	_ resource.ResourceWithImportState  = &ShodanDomainResource{}
+	_ resource.ResourceWithUpgradeState = &ShodanDomainResource{}
 )
 
 // ShodanDomainResource is the resource implementation.
@@ -361,15 +361,15 @@ func (r *ShodanDomainResource) UpgradeState(ctx context.Context) map[int64]resou
 		0: {
 			PriorSchema: &schema.Schema{
 				Attributes: map[string]schema.Attribute{
-					"id": schema.StringAttribute{Computed: true},
-					"domain": schema.StringAttribute{Required: true},
-					"name": schema.StringAttribute{Optional: true},
-					"description": schema.StringAttribute{Optional: true},
-					"enabled": schema.BoolAttribute{Optional: true, Computed: true},
-					"triggers": schema.ListAttribute{ElementType: types.StringType, Optional: true},
-					"notifiers": schema.ListAttribute{ElementType: types.StringType, Optional: true},
+					"id":                  schema.StringAttribute{Computed: true},
+					"domain":              schema.StringAttribute{Required: true},
+					"name":                schema.StringAttribute{Optional: true},
+					"description":         schema.StringAttribute{Optional: true},
+					"enabled":             schema.BoolAttribute{Optional: true, Computed: true},
+					"triggers":            schema.ListAttribute{ElementType: types.StringType, Optional: true},
+					"notifiers":           schema.ListAttribute{ElementType: types.StringType, Optional: true},
 					"slack_notifications": schema.ListAttribute{ElementType: types.StringType, Optional: true},
-					"created_at": schema.StringAttribute{Computed: true},
+					"created_at":          schema.StringAttribute{Computed: true},
 				},
 			},
 			StateUpgrader: func(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {

@@ -80,6 +80,116 @@ func (c *ShodanClient) CreateAlert(name string, filters map[string]interface{}) 
 	return &alertResp, nil
 }
 
+// AddIgnoreService adds an (ip, port) pair to a trigger's ignore list — the
+// Shodan API equivalent of the "Add to Whitelist" button in the alert email.
+// service is formatted as "ip:port" (e.g. "203.0.113.10:3307").
+func (c *ShodanClient) AddIgnoreService(alertID, trigger, service string) error {
+	if alertID == "" {
+		return fmt.Errorf("alert ID cannot be empty")
+	}
+	if trigger == "" {
+		return fmt.Errorf("trigger cannot be empty")
+	}
+	if service == "" {
+		return fmt.Errorf("service cannot be empty")
+	}
+	req, err := http.NewRequest("PUT", fmt.Sprintf("%s/shodan/alert/%s/trigger/%s/ignore/%s?key=%s", c.BaseURL, alertID, trigger, service, c.ApiKey), nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// RemoveIgnoreService removes an (ip, port) pair from a trigger's ignore list.
+// 404 is treated as success (idempotent).
+func (c *ShodanClient) RemoveIgnoreService(alertID, trigger, service string) error {
+	if alertID == "" {
+		return fmt.Errorf("alert ID cannot be empty")
+	}
+	if trigger == "" {
+		return fmt.Errorf("trigger cannot be empty")
+	}
+	if service == "" {
+		return fmt.Errorf("service cannot be empty")
+	}
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/shodan/alert/%s/trigger/%s/ignore/%s?key=%s", c.BaseURL, alertID, trigger, service, c.ApiKey), nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNotFound {
+		return nil
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	return fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+}
+
+// ExtractIgnoredServices parses the per-trigger ignore arrays from an alert's
+// triggers map. Returns map[trigger]→sorted []string of "ip:port" entries.
+// The Shodan API returns each trigger as map[string]any with an "ignore" key
+// containing []any of map[string]any{"ip": ..., "port": ...}; any other shape
+// is silently skipped (forward-compat for API additions).
+func ExtractIgnoredServices(triggers map[string]interface{}) map[string][]string {
+	out := make(map[string][]string)
+	for name, raw := range triggers {
+		t, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		ignoreRaw, ok := t["ignore"]
+		if !ok {
+			continue
+		}
+		ignoreList, ok := ignoreRaw.([]interface{})
+		if !ok {
+			continue
+		}
+		for _, entry := range ignoreList {
+			entryMap, ok := entry.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			ip, _ := entryMap["ip"].(string)
+			if ip == "" {
+				continue
+			}
+			var portStr string
+			switch p := entryMap["port"].(type) {
+			case float64:
+				portStr = fmt.Sprintf("%d", int(p))
+			case int:
+				portStr = fmt.Sprintf("%d", p)
+			case string:
+				portStr = p
+			}
+			if portStr == "" {
+				continue
+			}
+			out[name] = append(out[name], fmt.Sprintf("%s:%s", ip, portStr))
+		}
+	}
+	return out
+}
+
 // AddTrigger adds a trigger to an existing alert
 func (c *ShodanClient) AddTrigger(alertID, trigger string) error {
 	if alertID == "" {

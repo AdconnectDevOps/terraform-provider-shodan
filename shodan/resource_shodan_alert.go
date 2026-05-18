@@ -17,10 +17,10 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces
 var (
-	_ resource.Resource                  = &ShodanAlertResource{}
-	_ resource.ResourceWithConfigure     = &ShodanAlertResource{}
-	_ resource.ResourceWithImportState   = &ShodanAlertResource{}
-	_ resource.ResourceWithUpgradeState  = &ShodanAlertResource{}
+	_ resource.Resource                 = &ShodanAlertResource{}
+	_ resource.ResourceWithConfigure    = &ShodanAlertResource{}
+	_ resource.ResourceWithImportState  = &ShodanAlertResource{}
+	_ resource.ResourceWithUpgradeState = &ShodanAlertResource{}
 )
 
 // ShodanAlertResource is the resource implementation.
@@ -39,6 +39,7 @@ type ShodanAlertResourceModel struct {
 	Triggers           types.Set    `tfsdk:"triggers"`
 	Notifiers          types.Set    `tfsdk:"notifiers"`
 	SlackNotifications types.Set    `tfsdk:"slack_notifications"`
+	Whitelist          types.Map    `tfsdk:"whitelist"`
 	CreatedAt          types.String `tfsdk:"created_at"`
 }
 
@@ -103,6 +104,12 @@ func (r *ShodanAlertResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Description: "Set of Slack notifier IDs to associate with the alert. Use the notifier ID from your Shodan account settings.",
 				ElementType: types.StringType,
 				Optional:    true,
+			},
+			"whitelist": schema.MapAttribute{
+				Description: "Per-trigger ignore list mirroring the Shodan UI 'Add to Whitelist' button. Map keys are trigger names; values are sets of `ip:port` services to silence for that trigger. Each whitelisted service must already match an entry under `triggers`.",
+				ElementType: types.SetType{ElemType: types.StringType},
+				Optional:    true,
+				Computed:    true,
 			},
 			"created_at": schema.StringAttribute{
 				Description: "The timestamp when the alert was created.",
@@ -184,6 +191,26 @@ func (r *ShodanAlertResource) Create(ctx context.Context, req resource.CreateReq
 		}
 	}
 
+	// Whitelist must be applied after triggers — Shodan rejects ignore writes
+	// for triggers that aren't enabled on the alert.
+	if !plan.Whitelist.IsNull() && !plan.Whitelist.IsUnknown() {
+		for trigger, services := range whitelistFromMap(ctx, plan.Whitelist) {
+			for _, svc := range services {
+				if err := r.client.AddIgnoreService(alert.ID, trigger, svc); err != nil {
+					tflog.Warn(ctx, fmt.Sprintf("Failed to whitelist %s for trigger %s: %s", svc, trigger, err.Error()))
+				}
+			}
+		}
+	}
+
+	// Reflect the API's current ignore lists in state so the Computed
+	// `whitelist` attribute is populated even when the config omits it.
+	if refreshed, err := r.client.GetAlert(alert.ID); err == nil {
+		plan.Whitelist = whitelistToMap(ExtractIgnoredServices(refreshed.Triggers))
+	} else {
+		plan.Whitelist = types.MapValueMust(types.SetType{ElemType: types.StringType}, map[string]attr.Value{})
+	}
+
 	// Set computed values
 	plan.ID = types.StringValue(alert.ID)
 	plan.CreatedAt = types.StringValue(alert.Created)
@@ -263,6 +290,8 @@ func (r *ShodanAlertResource) Read(ctx context.Context, req resource.ReadRequest
 		state.Triggers = types.SetNull(types.StringType)
 	}
 
+	state.Whitelist = whitelistToMap(ExtractIgnoredServices(alert.Triggers))
+
 	diags = resp.State.Set(ctx, state)
 	resp.Diagnostics.Append(diags...)
 }
@@ -337,6 +366,16 @@ func (r *ShodanAlertResource) Update(ctx context.Context, req resource.UpdateReq
 			"slack notifier", &resp.Diagnostics)
 	}
 
+	// Reconcile whitelist (per-trigger ignored services) AFTER triggers — the
+	// Shodan API rejects ignore writes for triggers not present on the alert.
+	if !plan.Whitelist.Equal(state.Whitelist) {
+		syncWhitelist(ctx, state.ID.ValueString(),
+			whitelistFromMap(ctx, state.Whitelist),
+			whitelistFromMap(ctx, plan.Whitelist),
+			r.client.AddIgnoreService, r.client.RemoveIgnoreService,
+			&resp.Diagnostics)
+	}
+
 	// After all updates, read the current state from the API to ensure computed fields are set correctly
 	updatedAlert, err := r.client.GetAlert(state.ID.ValueString())
 	if err != nil {
@@ -368,6 +407,8 @@ func (r *ShodanAlertResource) Update(ctx context.Context, req resource.UpdateReq
 			}
 		}
 	}
+
+	plan.Whitelist = whitelistToMap(ExtractIgnoredServices(updatedAlert.Triggers))
 
 	// Set state with updated values
 	diags = resp.State.Set(ctx, plan)
@@ -459,6 +500,7 @@ func (r *ShodanAlertResource) UpgradeState(_ context.Context) map[int64]resource
 					Triggers:           listToSet(prior.Triggers),
 					Notifiers:          listToSet(prior.Notifiers),
 					SlackNotifications: listToSet(prior.SlackNotifications),
+					Whitelist:          types.MapNull(types.SetType{ElemType: types.StringType}),
 					CreatedAt:          prior.CreatedAt,
 				}
 				resp.Diagnostics.Append(resp.State.Set(ctx, &upgraded)...)

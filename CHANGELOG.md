@@ -4,6 +4,28 @@ All notable changes to this provider are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this provider adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.20] — 2026-05-18
+
+### Added
+
+- **`shodan_alert.whitelist` attribute** — per-trigger ignore list mirroring the Shodan UI "Add to Whitelist" button. Map of trigger name → set of `ip:port` services. Lets operators silence false-positive `new_service` / `vulnerable` notifications for a known service on a specific IP without disabling the trigger for the rest of the asset group. Example use case: GCP Cloud SQL exposes port 3307 (SSL-only MySQL endpoint) automatically on every public-IP instance — Shodan flags it as a new service every rescan; whitelisting `<cloud-sql-ip>:3307` for the `new_service` trigger suppresses the noise while keeping the trigger active for genuinely new services.
+
+  The attribute is `Optional + Computed`: if you omit it, Read populates state from whatever Shodan currently has ignored (manual "Add to Whitelist" clicks in the UI do not produce drift). Reconciliation in `Update` diffs per-trigger and issues `PUT`/`DELETE /shodan/alert/{id}/trigger/{trigger}/ignore/{ip}:{port}` for added/removed entries. Whitelist writes for triggers not present in the alert's `triggers` set surface as warnings, not hard failures — matches existing notifier/slack reconciliation semantics.
+
+- **Client methods `AddIgnoreService(alertID, trigger, service)` and `RemoveIgnoreService(alertID, trigger, service)`** — wrap the corresponding Shodan ignore endpoints. `RemoveIgnoreService` treats 404 as success (idempotent).
+
+- **Helper `ExtractIgnoredServices(triggers map[string]any) map[string][]string`** in `client.go` — parses the per-trigger `ignore` arrays from a `GET /shodan/alert/{id}/info` response. Forward-compatible: any per-trigger entry not matching the `{ip, port}` shape is silently skipped.
+
+- **First unit + httptest coverage** (`shodan/whitelist_test.go`). Covers `ExtractIgnoredServices` (port as float64/int/string, malformed entries), `whitelistFromMap` ↔ `whitelistToMap` round-trip, `syncWhitelist` per-trigger diff with mock add/remove funcs, and httptest-based assertions on `AddIgnoreService` / `RemoveIgnoreService` URL shape + 404-as-success semantics. `make test` was previously a no-op (`no test files`) — establishes the testing baseline for future client/resource changes.
+
+- **Retroactive coverage for past bug-fix areas** (`helpers_test.go`, `client_test.go`, `rate_limiter_test.go`, root `provider_test.go`). Each major bug from 0.1.16-0.1.19 is now pinned by a test that would have caught the regression: `syncStringList` plan-empty-state-has-entries case (0.1.16 trigger removal), `RemoveTrigger`/`RemoveNotifier` 404-as-success (0.1.16 idempotency), `GetAlert` 404 string surface (0.1.16 hard-error fix relies on Read string-matching), `ListAlerts` 60s caching + post-TTL re-fetch (0.1.17 API spam), rate-limiter 429 retry + exhaust + body-replay-on-retry (0.1.17), and provider `SHODAN_API_KEY` env var fallback (0.1.16 doc-vs-code mismatch). Total ~50 sub-tests, full suite runs in <1s.
+
+- **CLAUDE.md test-required rule.** Every functional change in this provider — new client method, new resource attribute, new helper, bug fix — ships with a test in the same MR. Bug fixes get a regression test that fails on the old code before the fix lands. Closing test gaps retroactively is more work than adding the test alongside the change; the 0.1.16-0.1.19 streak of user-caught regressions is the empirical case.
+
+### Upgrade notes
+
+No state migration is required. State files written by 0.1.19 are read as v1 and the new `whitelist` attribute is populated from the API on the first refresh. Manually-added whitelist entries (clicked "Add to Whitelist" in the Shodan UI) are imported into state automatically — the next `terraform plan` shows `No changes` if your config either omits `whitelist` or matches the imported entries.
+
 ## [0.1.19] — 2026-05-15
 
 ### Fixed

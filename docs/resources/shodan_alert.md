@@ -135,6 +135,19 @@ The following arguments are supported:
 
 *   `slack_notifications` (Optional, Set of String) - Set of Slack notifier IDs to send notifications to (order-insensitive).
 
+*   `whitelist` (Optional, Map of Set of String) - Per-trigger ignore list mirroring the Shodan UI "Add to Whitelist" button. Map keys are trigger names from the `triggers` set; values are sets of `ip:port` services to silence for that trigger. Use this to suppress false-positive notifications for a known service on a specific IP without disabling the trigger for the rest of the asset group.
+
+    ```hcl
+    triggers = ["new_service", "open_database"]
+    whitelist = {
+      new_service = [
+        "203.0.113.10:3307", # known-good service on this host — suppress new_service noise
+      ]
+    }
+    ```
+
+    A whitelisted service is only honored for triggers actually enabled on the alert; entries referring to a disabled trigger surface as warnings at apply time. The attribute is also Computed — if you omit it, state is populated from whatever Shodan currently has ignored (so manual "Add to Whitelist" clicks in the UI do not produce drift).
+
 ## Attribute Reference
 
 In addition to all arguments above, the following attributes are exported:

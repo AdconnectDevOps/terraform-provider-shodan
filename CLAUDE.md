@@ -174,6 +174,41 @@ A resource schema change touches more than the `.go` file. Sync all of:
 - `examples/*.tf` — literal HCL types must match the new schema (e.g. scalar `network = "10.0.0.0/24"` is invalid when schema is `list(string)`; wrap in `[]`).
 - `CLAUDE.md` "Known gotchas" — refresh the entry if a documented gotcha changed shape.
 
+## Unit tests
+
+**Rule: every functional change in this provider ships with a test in the same MR.** Applies to new client methods, new resource attributes, new helpers, and bug fixes. The recent run of state-corruption bugs (0.1.16-0.1.19) was caught by users in production — each would have been a one-line unit test catch. Test gap = real-world regression risk; closing the gap retroactively is more work than adding the test alongside the change.
+
+For bug fixes specifically: the test that demonstrates the bug goes in first (fails on old code), then the fix is added until the test passes. Reference the originating release in the test comment (e.g. `// 0.1.16 regression — ...`) so future readers see why the case is non-obvious.
+
+### Files
+
+| File | Covers |
+|---|---|
+| `shodan/helpers_test.go` | `syncStringList` (bidirectional set-diff used by triggers/notifiers/slack), `listToStringSlice`, `setToStringSlice`, warning-not-error contract on transient API failures |
+| `shodan/client_test.go` | `AddTrigger`/`RemoveTrigger`/`AddNotifier`/`RemoveNotifier` URL + method + 404-as-success, `GetAlert` 404 surfaced as `status 404` string (Read matches on this), `UpdateAlert` URL/body/Content-Type, `DeleteAlert` idempotent, `ListAlerts` 60s cache + post-TTL re-fetch |
+| `shodan/rate_limiter_test.go` | 1-second floor in `NewRateLimitedHTTPClient`, 429 retry-then-success, 429 exhaust-retries surfaces 429, body buffering replays POST/PUT/DELETE bodies on retry |
+| `shodan/whitelist_test.go` | `ExtractIgnoredServices` shape variants (port as float64/int/string, malformed entries), `whitelistFromMap`↔`whitelistToMap` round-trip, `syncWhitelist` per-trigger diff, `AddIgnoreService`/`RemoveIgnoreService` URL + 404-as-success + empty-arg guards |
+| `provider_test.go` (root) | `SHODAN_API_KEY` env var fallback, config-beats-env precedence, missing-key error |
+
+### Patterns
+
+- **Pure helpers** — table-driven `map[string]struct{in, want}` cases, `reflect.DeepEqual` after sorting both sides (Go map iteration is randomized; the diff helpers and the API both emit unordered output).
+- **`sync*` mock funcs** — capture the `(op, ...)` tuple of every call into a shared `[]call` slice, sort both `got` and `want` by deterministic key before comparison. Same shape for `syncStringList` and `syncWhitelist` — copy the patterns when adding the next reconciler.
+- **Client methods** — `newDirectClient` (in `client_test.go`) wires a `*ShodanClient` to a `httptest.NewServer` while bypassing the 1-second rate-limiter floor (constructs the `RateLimitedHTTPClient` struct directly with `requestInterval: 0`). Use for tests that exercise multi-request behaviour or retries. For single-request tests, `NewRateLimitedHTTPClient(srv.Client(), 0)` is fine (silently floored to 1s, but the first request goes through immediately because `lastRequest` is zero-time).
+- **Rate limiter retry tests** — drive multi-attempt scenarios with an `atomic.Int32` hit counter in the handler; assert both the final response status and the exact hit count (`MaxRetries + 1` for exhausted, `failures + 1` for transient).
+- **Provider Configure** — `t.Setenv("SHODAN_API_KEY", ...)` for env var cases; build a real `tfsdk.Config` via `tftypes.NewValue(Object, ...)` shape matching the provider schema. See `provider_test.go` `runConfigure` helper for the boilerplate.
+
+Run with `make test` or `go test -v ./...`. Currently ~50 sub-tests, all <1s total runtime (no real network, no sleeps).
+
+### Not covered yet — extend in follow-up
+
+- **Resource-level Create/Read/Update/Delete lifecycle** — would need `httptest` + `resource.CreateRequest`/`ReadRequest`/etc. scaffolding. The client + helpers carry most of the bug-prone logic, but a full resource-level Update test would close the last gap.
+- **`UpgradeState` v0→v1 (List→Set migration)** — needs `resource.UpgradeStateRequest` with a hand-built `tftypes.RawState` matching the v0 prior schema. Mechanically doable, just heavyweight. Add when the next schema version bump is on the roadmap.
+- **`shodan_domain` Read recovery path** — the canned `ListAlerts` lookup-by-name flow added in 0.1.16. Test via `newDirectClient` returning a list with one matching `__domain:` entry; verify the resource state gets the recovered ID. Currently only covered by user-reported recovery success.
+- **Acceptance tests against real Shodan API** — separate task. Gate on `TF_ACC=1` (upstream convention) so `make test` stays API-key-free.
+
+## Testing locally against a real Terraform configuration
+
 ## Testing locally against a real Terraform configuration
 
 ```bash
@@ -194,6 +229,8 @@ make dev                          # prints TF_REATTACH_PROVIDERS line — copy t
 - **API key in URL query string.** Shodan accepts the key only as `?key=<value>`, not as a header. Avoid logging full URLs (they include the key); use the structured error format above so the caller controls what gets surfaced.
 - **`AlertResponse.HasTriggers` is approximated as `Enabled`** in `Read`. The Shodan API has no explicit per-alert enabled/disabled field — an alert is functionally inert when it has no triggers. If a real "paused" semantic is ever added, replace this approximation.
 - **`Triggers` in `AlertResponse` is `map[string]interface{}`.** Read extracts keys via `for name := range alert.Triggers` (Go map iteration is randomized) and stores them in a `SetAttribute` so plan diffs are order-insensitive. Drift from out-of-band trigger changes is detected correctly; the order changes per refresh but Terraform set semantics ignore it. Do **not** revert to `ListAttribute` — it produces eternal `update in-place` churn (see CHANGELOG 0.1.19).
+- **Per-trigger ignore list shape**: each `alert.Triggers[name]` is itself a `map[string]any` containing an `"ignore"` key whose value is `[]any` of `{"ip": string, "port": float64}`. Ports arrive as `float64` (default JSON number unmarshal target) — `ExtractIgnoredServices` in `client.go` switches on the runtime type and formats to `"ip:port"` strings for the `whitelist` attribute. The shape lives only in `ExtractIgnoredServices`; do not duplicate the parsing inline.
+- **Whitelist endpoint URL has `ip:port` in the path, not the query string** (`PUT /shodan/alert/{id}/trigger/{trigger}/ignore/{ip}:{port}`). Go's `http.NewRequest` does not URL-escape colons in the path component, so `203.0.113.10:3307` passes through verbatim — matches the API spec. If an IPv6 service ever needs whitelisting, escape the brackets manually before calling `AddIgnoreService`.
 - **Rate limiter is single-process.** Parallel `terraform plan` invocations against the same Shodan account can still trip rate limits — the limiter only spaces requests within one provider process.
 
 ## Style
