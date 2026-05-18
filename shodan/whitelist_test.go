@@ -404,4 +404,3 @@ func TestRemoveIgnoreService_500IsError(t *testing.T) {
 		t.Error("expected error on 500, got nil")
 	}
 }
-

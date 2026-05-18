@@ -122,7 +122,7 @@ func TestSyncStringList_FailuresSurfaceAsWarnings(t *testing.T) {
 
 	diags := diag.Diagnostics{}
 	syncStringList(context.Background(), "alert-id",
-		[]types.String{types.StringValue("uncommon")},   // state: will be removed → fails
+		[]types.String{types.StringValue("uncommon")},    // state: will be removed → fails
 		[]types.String{types.StringValue("new_service")}, // plan: will be added → fails
 		addFn, removeFn, "trigger", &diags)
 
