@@ -21,8 +21,8 @@ install: build ## Build and install the provider locally
 	mkdir -p ~/.terraform.d/plugins/registry.terraform.io/adconnectdevops/shodan/0.1.0/darwin_arm64/
 	cp terraform-provider-shodan ~/.terraform.d/plugins/registry.terraform.io/adconnectdevops/shodan/0.1.0/darwin_arm64/
 
-fmt: ## Format Go code
-	export GOROOT=/opt/homebrew/opt/go/libexec && go fmt ./...
+fmt: ## Format Go code (matches CI: gofmt -s for simplifications)
+	export GOROOT=/opt/homebrew/opt/go/libexec && gofmt -s -w .
 
 vet: ## Run go vet
 	export GOROOT=/opt/homebrew/opt/go/libexec && go vet ./...
